@@ -47,11 +47,6 @@ func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream
 	} else
 	if fmt.Sprintf("%v",dst) == "80"{
 		go hstream.runRequest() // Important... we must guarantee that data from the reader stream is read.
-	} else
-	if fmt.Sprintf("%v",dst) == "443" {
-		go hstream.runRequests()
-	} else {
-		go hstream.run()
 	}
 
 	// ReaderStream implements tcpassembly.Stream, so we can return a pointer to it.
@@ -142,6 +137,7 @@ func printRequest(req *http.Request,h *httpStream,bodyBytes int){
 	fmt.Println("\n\r\n\r")
 	fmt.Println(h.net,h.transport)
 	fmt.Println("\n\r")
+  fmt.Println(req.Host)
 	fmt.Println(req.Method, req.RequestURI, req.Proto)
 	printHeader(req.Header)
 

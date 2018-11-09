@@ -1,6 +1,7 @@
 /* http dump
  * Author:asmcos
  * 2018-
+ * thank gopacket example
  */
 
 package main
@@ -8,31 +9,40 @@ package main
 import (
 
 	"flag"
-
 	"log"
-
 	"time"
-	_"fmt"
 
 	"github.com/google/gopacket"
-	"github.com/google/gopacket/examples/util"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/tcpassembly"
-	
+
 )
 
 var iface = flag.String("i", "lo0", "Interface to get packets from")
 var snaplen = flag.Int("s", 1600, "SnapLen for pcap packet capture")
 var filter = flag.String("f", "tcp and port 80", "BPF filter for pcap")
 var logAllPackets = flag.Bool("v", false, "Logs every packet in great detail")
+var help = flag.Bool("h", false, "this help")
 
+func Usage(){
+
+  flag.PrintDefaults()
+
+}
 
 func main() {
-	defer util.Run()()
+
 	var handle *pcap.Handle
 	var err error
 
+  flag.Usage = Usage
+  flag.Parse()
+
+  if *help == true {
+    flag.Usage()
+    return
+  }
 	// Set up pcap packet capture
 
 	log.Printf("Starting capture on interface %q", *iface)
@@ -77,4 +87,5 @@ func main() {
 			assembler.FlushOlderThan(time.Now().Add(time.Minute * -2))
 		}
 	}
+
 }
