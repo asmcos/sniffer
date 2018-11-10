@@ -1,28 +1,27 @@
-/*
+/* Build a HTTP request parser using tcpassembly.StreamFactory and tcpassembly.Stream interfaces
  * http header,
  * request,
  * response
+ * Author: asmcos
  */
 
 package main
 
 import (
 	"bufio"
-
 	"io"
 	"log"
-	"net/http"
-
 	"fmt"
+  "bytes"
+  "strings"
+  "net/http"
+  "net/textproto"
 
 	"github.com/google/gopacket"
-
 	"github.com/google/gopacket/tcpassembly"
 	"github.com/google/gopacket/tcpassembly/tcpreader"
 )
 
-
-// Build a simple HTTP request parser using tcpassembly.StreamFactory and tcpassembly.Stream interfaces
 
 // httpStreamFactory implements tcpassembly.StreamFactory
 type httpStreamFactory struct{}
@@ -32,7 +31,7 @@ type httpStream struct {
 	net, transport gopacket.Flow
 	r              tcpreader.ReaderStream
 }
-
+// every packet call once New
 func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
 	hstream := &httpStream{
 		net:       net,
@@ -41,54 +40,32 @@ func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream
 	}
 
 
-	src,dst := transport.Endpoints()
-	if fmt.Sprintf("%v",src) == "80"{
-		go hstream.runResponse() // Important... we must guarantee that data from the reader stream is read.
-	} else
-	if fmt.Sprintf("%v",dst) == "80"{
-		go hstream.runRequest() // Important... we must guarantee that data from the reader stream is read.
-	}
+	// src,dst := transport.Endpoints()
+  go hstream.ReadData()
 
 	// ReaderStream implements tcpassembly.Stream, so we can return a pointer to it.
 	return &hstream.r
 }
 
-func (h * httpStream) runRequests(){
-	reader := bufio.NewReader(&h.r)
+func (h *httpStream) ReadData(){
 
-	defer tcpreader.DiscardBytesToEOF(reader)
+  buf := bufio.NewReader(&h.r)
 
-	log.Println(h.net, h.transport)
+  data,_ := buf.Peek(10)
 
-	for {
-		data := make([]byte,1600)
-		n,err := reader.Read(data)
-		if err == io.EOF{
-			return
-		}
-		log.Printf("[% x]",data[:n])
-	}
-}
+  if isRequest(data){
+    h.runRequest(buf)
+  }
 
-func (h *httpStream) run(){
-	reader := bufio.NewReader(&h.r)
-	defer tcpreader.DiscardBytesToEOF(reader)
+  if isResponse(data){
+    h.runResponse(buf)
+  }
 
-	log.Println(h.net, h.transport)
-	for {
-		data := make([]byte,1600)
-		n,err := reader.Read(data)
-		if err == io.EOF{
-			return
-		}
-		log.Printf("[% x]",data[:n])
-	}
 
 }
 
-func (h *httpStream) runResponse() {
+func (h *httpStream) runResponse(buf * bufio.Reader) {
 
-	buf := bufio.NewReader(&h.r)
 	defer tcpreader.DiscardBytesToEOF(buf)
 	for {
 		resp, err := http.ReadResponse(buf,nil)
@@ -106,9 +83,8 @@ func (h *httpStream) runResponse() {
 		}
 	}
 }
-func (h *httpStream) runRequest() {
+func (h *httpStream) runRequest(buf *bufio.Reader) {
 
-	buf := bufio.NewReader(&h.r)
 	defer tcpreader.DiscardBytesToEOF(buf)
 	for {
 		req, err := http.ReadRequest(buf)
@@ -148,4 +124,30 @@ func printResponse(resp *http.Response,h *httpStream,bodyBytes int){
 	fmt.Println("\n\r")
 	fmt.Println(resp.Proto, resp.Status)
 	printHeader(resp.Header)
+}
+
+
+func isRequest(data []byte) bool {
+	buf := bytes.NewBuffer(data)
+	reader := bufio.NewReader(buf)
+	tp := textproto.NewReader(reader)
+
+	firstLine, _ := tp.ReadLine()
+	arr := strings.Split(firstLine, " ")
+
+	switch strings.TrimSpace(arr[0]) {
+	case "GET", "HEAD", "POST", "PUT", "DELETE", "TRACE", "CONNECT":
+		return true
+	default:
+		return false
+	}
+}
+
+func  isResponse(data []byte) bool {
+	buf := bytes.NewBuffer(data)
+	reader := bufio.NewReader(buf)
+	tp := textproto.NewReader(reader)
+
+	firstLine, _ := tp.ReadLine()
+	return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")
 }

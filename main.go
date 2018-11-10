@@ -57,11 +57,12 @@ func main() {
 	}
 
 	// Set up assembly
+  // callback ,in http_parse.go
 	streamFactory := &httpStreamFactory{}
 	streamPool := tcpassembly.NewStreamPool(streamFactory)
 	assembler := tcpassembly.NewAssembler(streamPool)
 
-	log.Println("reading in packets")
+	log.Println("Reading in packets")
 	// Read in packets, pass to assembler.
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	packets := packetSource.Packets()
