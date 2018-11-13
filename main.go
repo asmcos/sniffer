@@ -12,6 +12,8 @@ import (
 	"log"
 	"time"
 
+  "github.com/jinzhu/gorm"
+
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -24,12 +26,15 @@ var snaplen = flag.Int("s", 1600, "SnapLen for pcap packet capture")
 var filter = flag.String("f", "tcp and port 80", "BPF filter for pcap")
 var logAllPackets = flag.Bool("v", false, "Logs every packet in great detail")
 var help = flag.Bool("h", false, "this help")
+var db *gorm.DB
 
 func Usage(){
 
   flag.PrintDefaults()
 
 }
+
+
 
 func main() {
 
@@ -67,6 +72,14 @@ func main() {
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	packets := packetSource.Packets()
 	ticker := time.Tick(time.Minute)
+
+
+  //database initial
+  db = init_db()
+  defer db.Close()
+
+  go InitHdServer()
+
 	for {
 		select {
 		case packet := <-packets:

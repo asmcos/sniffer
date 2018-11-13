@@ -22,7 +22,6 @@ import (
 	"github.com/google/gopacket/tcpassembly/tcpreader"
 )
 
-
 // httpStreamFactory implements tcpassembly.StreamFactory
 type httpStreamFactory struct{}
 
@@ -31,6 +30,14 @@ type httpStream struct {
 	net, transport gopacket.Flow
 	r              tcpreader.ReaderStream
 }
+
+func (h *httpStream)GetIpPort()(SrcIp string,DstIp string,SrcPort string,DstPort string){
+  sip,dip := h.net.Endpoints()
+  sport,dport := h.transport.Endpoints()
+
+  return fmt.Sprintf("%v",sip),fmt.Sprintf("%v",dip),fmt.Sprintf("%v",sport),fmt.Sprintf("%v",dport)
+}
+
 // every packet call once New
 func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
 	hstream := &httpStream{
@@ -111,7 +118,16 @@ func printHeader(h http.Header){
 func printRequest(req *http.Request,h *httpStream,bodyBytes int){
 
 	fmt.Println("\n\r\n\r")
+
+  sip,dip,sport,dport := h.GetIpPort()
+
+  InsertData(db,&RequestTable{RequestURI:req.RequestURI,
+      Host:req.Host,
+      SrcIp:sip,SrcPort:sport,
+      DstIp:dip,DstPort:dport})
+
 	fmt.Println(h.net,h.transport)
+
 	fmt.Println("\n\r")
   fmt.Println(req.Host)
 	fmt.Println(req.Method, req.RequestURI, req.Proto)
