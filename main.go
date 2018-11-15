@@ -12,7 +12,7 @@ import (
 	"log"
 	"time"
 
-  "github.com/jinzhu/gorm"
+    "github.com/jinzhu/gorm"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -74,11 +74,11 @@ func main() {
 	ticker := time.Tick(time.Minute)
 
 
-  //database initial
-  db = init_db()
-  defer db.Close()
+    //database initial
+    db = init_db()
+    defer db.Close()
 
-  go InitHdServer()
+    go InitHdServer()
 
 	for {
 		select {

@@ -12,10 +12,10 @@ import (
 	"io"
 	"log"
 	"fmt"
-  "bytes"
-  "strings"
-  "net/http"
-  "net/textproto"
+	"bytes"
+	"strings"
+	"net/http"
+	"net/textproto"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/tcpassembly"
@@ -32,10 +32,10 @@ type httpStream struct {
 }
 
 func (h *httpStream)GetIpPort()(SrcIp string,DstIp string,SrcPort string,DstPort string){
-  sip,dip := h.net.Endpoints()
-  sport,dport := h.transport.Endpoints()
+    sip,dip := h.net.Endpoints()
+    sport,dport := h.transport.Endpoints()
 
-  return fmt.Sprintf("%v",sip),fmt.Sprintf("%v",dip),fmt.Sprintf("%v",sport),fmt.Sprintf("%v",dport)
+    return fmt.Sprintf("%v",sip),fmt.Sprintf("%v",dip),fmt.Sprintf("%v",sport),fmt.Sprintf("%v",dport)
 }
 
 // every packet call once New
@@ -48,32 +48,33 @@ func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream
 
 
 	// src,dst := transport.Endpoints()
-  go hstream.ReadData()
+    go hstream.ReadData()
 
 	// ReaderStream implements tcpassembly.Stream, so we can return a pointer to it.
-	return &hstream.r
+    return &hstream.r
 }
 
 func (h *httpStream) ReadData(){
 
-  buf := bufio.NewReader(&h.r)
+      buf := bufio.NewReader(&h.r)
+	  defer tcpreader.DiscardBytesToEOF(buf)
 
-  data,_ := buf.Peek(10)
+      data,_ := buf.Peek(10)
 
-  if isRequest(data){
-    h.runRequest(buf)
-  }
+      if isRequest(data){
+        h.runRequest(buf)
+      }
 
-  if isResponse(data){
-    h.runResponse(buf)
-  }
+      if isResponse(data){
+        h.runResponse(buf)
+      }
 
 
 }
 
 func (h *httpStream) runResponse(buf * bufio.Reader) {
 
-	defer tcpreader.DiscardBytesToEOF(buf)
+
 	for {
 		resp, err := http.ReadResponse(buf,nil)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -81,18 +82,16 @@ func (h *httpStream) runResponse(buf * bufio.Reader) {
 			return
 		} else if err != nil {
 			log.Println("Error reading stream", h.net, h.transport, ":", err)
-			return
+			//return
 		} else {
 			bodyBytes := tcpreader.DiscardBytesToEOF(resp.Body)
 			resp.Body.Close()
 			printResponse(resp,h,bodyBytes)
-			// log.Println("Received response from stream", h.net, h.transport, ":", resp, "with", bodyBytes, "bytes in response body")
 		}
 	}
 }
 func (h *httpStream) runRequest(buf *bufio.Reader) {
 
-	defer tcpreader.DiscardBytesToEOF(buf)
 	for {
 		req, err := http.ReadRequest(buf)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -104,7 +103,7 @@ func (h *httpStream) runRequest(buf *bufio.Reader) {
 			bodyBytes := tcpreader.DiscardBytesToEOF(req.Body)
 			req.Body.Close()
 			printRequest(req,h,bodyBytes)
-			// log.Println("Received request from stream", h.net, h.transport, ":", req, "with", bodyBytes, "bytes in request body")
+
 		}
 	}
 }
@@ -119,9 +118,9 @@ func printRequest(req *http.Request,h *httpStream,bodyBytes int){
 
 	fmt.Println("\n\r\n\r")
 
-  sip,dip,sport,dport := h.GetIpPort()
+    sip,dip,sport,dport := h.GetIpPort()
 
-  InsertData(db,&RequestTable{RequestURI:req.RequestURI,
+    InsertData(db,&RequestTable{RequestURI:req.RequestURI,
       Host:req.Host,
       SrcIp:sip,SrcPort:sport,
       DstIp:dip,DstPort:dport})
@@ -129,7 +128,7 @@ func printRequest(req *http.Request,h *httpStream,bodyBytes int){
 	fmt.Println(h.net,h.transport)
 
 	fmt.Println("\n\r")
-  fmt.Println(req.Host)
+    fmt.Println(req.Host)
 	fmt.Println(req.Method, req.RequestURI, req.Proto)
 	printHeader(req.Header)
 
