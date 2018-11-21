@@ -22,7 +22,7 @@ func InitHdServer (){
 
 func rootPath(c *gin.Context){
 
-  data := FindData(db)
+  data := FindRequestData(db)
 
   c.JSON(200,data)
 

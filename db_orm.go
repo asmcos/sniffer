@@ -18,29 +18,72 @@ type RequestTable struct {
         SrcPort    string
         DstIp      string
         DstPort    string
-        isResp     int
+        IsResp     int
+		StatusCode int
 }
+
+
+type ResponseTable struct{
+	gorm.Model
+	RequestTable RequestTable `gorm:"foreignkey:RequestRefer"`
+	RequestRefer int
+
+	StatusCode   int
+    SrcIp        string
+    SrcPort      string
+    DstIp        string
+    DstPort      string
+}
+
 
 func init_db()(newdb *gorm.DB) {
 
         newdb, _ = gorm.Open("sqlite3", "./httpdump.db")
 
+		// newdb.LogMode(true)
+
         newdb.AutoMigrate(&RequestTable{})
+        newdb.AutoMigrate(&ResponseTable{})
 
         return newdb
 }
 
 // insert a request record
-func InsertData(db * gorm.DB,req *RequestTable ){
-    req.isResp = 0
+func InsertRequestData(db * gorm.DB,req *RequestTable ){
+    req.IsResp = 1
     db.Create(req)
 }
 
-// query all access record
-func FindData(db *gorm.DB) (reqs  []RequestTable){
+func UpdateRequestIsResp(db *gorm.DB,req *RequestTable,StatusCode int){
 
+	// IsResp , Column name is_resp
+
+	db.Model(req).Updates(map[string]interface{}{"is_resp":2,"status_code":StatusCode})
+}
+
+//insert response record
+func InsertResponseData(db *gorm.DB,resp * ResponseTable,req *RequestTable){
+	// update request status
+	UpdateRequestIsResp(db,req,resp.StatusCode)
+
+	//save response
+	resp.RequestTable = *req
+	db.Create(resp)
+}
+
+// query all request access record
+func FindRequestData(db *gorm.DB) (reqs  []RequestTable){
 
     db.Order("ID desc").Find(&reqs)
 
     return reqs
 }
+
+func FindRequest(db * gorm.DB,SrcIp string,SrcPort string,DstIp string,DstPort string) (req RequestTable){
+
+	db.Where(RequestTable{IsResp:1, SrcIp: DstIp, SrcPort:DstPort,DstIp:SrcIp,DstPort:SrcPort}).First(&req)
+
+	return req
+}
+
+

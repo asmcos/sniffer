@@ -138,7 +138,7 @@ func printRequest(req *http.Request,h *httpStream,bodyBytes int){
 
     sip,dip,sport,dport := h.GetIpPort()
 
-    InsertData(db,&RequestTable{RequestURI:req.RequestURI,
+    InsertRequestData(db,&RequestTable{RequestURI:req.RequestURI,
       Host:req.Host,
       SrcIp:sip,SrcPort:sport,
       DstIp:dip,DstPort:dport})
@@ -153,6 +153,17 @@ func printRequest(req *http.Request,h *httpStream,bodyBytes int){
 }
 
 func printResponse(resp *http.Response,h *httpStream,bodyBytes []byte){
+
+    sip,dip,sport,dport := h.GetIpPort()
+
+	req := FindRequest(db,sip,sport,dip,dport)
+
+	InsertResponseData(db,&ResponseTable{StatusCode:resp.StatusCode,
+      SrcIp:sip,SrcPort:sport,
+      DstIp:dip,DstPort:dport},&req)
+
+	fmt.Println(req)
+
 
 	fmt.Println("\n\r")
 	fmt.Println(resp.Proto, resp.Status)

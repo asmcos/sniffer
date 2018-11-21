@@ -19,6 +19,7 @@
         <tr>
           <th>#</th>
           <th >访问路径</th>
+          <th >状态码</th>
           <th>IP</th>
           <th>时间</th>
         </tr>
@@ -26,7 +27,8 @@
       <tbody>
         <tr v-for="(item, index) in requestData">
           <th scope="row" >{{item.ID}}</th>
-          <td style="width:50%;">{{item.RequestURI}}</td>
+          <td style="width:50%;" data-toggle="tooltip" data-placement="top" v-bind:title="item.Host">{{item.RequestURI}}</td>
+          <td>{{item.StatusCode}}</td>
           <td>{{item.SrcIp}}</td>
           <td>{{item.CreatedAt}}</td>
         </tr>
