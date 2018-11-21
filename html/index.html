@@ -25,7 +25,7 @@
       </thead>
       <tbody>
         <tr v-for="(item, index) in requestData">
-          <th scope="row" >{{index}}</th>
+          <th scope="row" >{{item.ID}}</th>
           <td style="width:50%;">{{item.RequestURI}}</td>
           <td>{{item.SrcIp}}</td>
           <td>{{item.CreatedAt}}</td>

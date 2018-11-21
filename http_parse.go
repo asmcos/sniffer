@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"bytes"
 	"strings"
+	"io/ioutil"
 	"net/http"
 	"net/textproto"
 
@@ -59,7 +60,11 @@ func (h *httpStream) ReadData(){
       buf := bufio.NewReader(&h.r)
 	  defer tcpreader.DiscardBytesToEOF(buf)
 
-      data,_ := buf.Peek(10)
+      data,err := buf.Peek(10)
+
+	  if err !=nil{
+		return
+	  }
 
       if isRequest(data){
         h.runRequest(buf)
@@ -72,6 +77,20 @@ func (h *httpStream) ReadData(){
 
 }
 
+func ReadAll(resp *http.Response) []byte {
+
+    defer resp.Body.Close()
+
+    var Body = resp.Body
+
+    content, err := ioutil.ReadAll(Body)
+    if err != nil {
+        return nil
+    }
+
+    return content
+}
+
 func (h *httpStream) runResponse(buf * bufio.Reader) {
 
 
@@ -82,10 +101,9 @@ func (h *httpStream) runResponse(buf * bufio.Reader) {
 			return
 		} else if err != nil {
 			log.Println("Error reading stream", h.net, h.transport, ":", err)
-			//return
+			return
 		} else {
-			bodyBytes := tcpreader.DiscardBytesToEOF(resp.Body)
-			resp.Body.Close()
+			bodyBytes := ReadAll(resp)
 			printResponse(resp,h,bodyBytes)
 		}
 	}
@@ -134,7 +152,7 @@ func printRequest(req *http.Request,h *httpStream,bodyBytes int){
 
 }
 
-func printResponse(resp *http.Response,h *httpStream,bodyBytes int){
+func printResponse(resp *http.Response,h *httpStream,bodyBytes []byte){
 
 	fmt.Println("\n\r")
 	fmt.Println(resp.Proto, resp.Status)
