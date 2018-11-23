@@ -3,6 +3,7 @@ package main
 import (
   "github.com/gin-gonic/gin"
   "net/http"
+  "strconv"
 )
 
 func InitHdServer (){
@@ -22,7 +23,21 @@ func InitHdServer (){
 
 func rootPath(c *gin.Context){
 
-  data := FindRequestData(db)
+  var defaultpage = 1;
+  var defaultpagesize = 10;
+
+  if page, isExist := c.GetQuery("page"); isExist == true {
+        defaultpage, _ = strconv.Atoi(page)
+        if defaultpage > 0{
+            defaultpage -= 1
+        }
+  }
+
+  if pagesize, isExist := c.GetQuery("pagesize"); isExist == true {
+        defaultpagesize, _ = strconv.Atoi(pagesize)
+  }
+
+  data := FindRequestDataPage(db,defaultpage,defaultpagesize)
 
   c.JSON(200,data)
 

@@ -12,7 +12,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
   <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
   <!-- Bootstrap 3.3.6 -->
   <!--link rel="stylesheet" href="bootstrap/css/bootstrap.min.css"-->
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">   
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css">
   <!-- Ionicons -->
@@ -33,7 +33,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
  <link href="https://cdn.bootcss.com/admin-lte/2.4.8/css/skins/_all-skins.css" rel="stylesheet">
  <link href="https://cdn.bootcss.com/admin-lte/2.4.8/css/alt/AdminLTE-without-plugins.min.css" rel="stylesheet">
  <link href="https://cdn.bootcss.com/admin-lte/2.4.8/css/skins/skin-black-light.css" rel="stylesheet">
-  <!--end cdn-->
+  <!--end cdn--> 
   <!-- Theme style -->
   <!--link rel="stylesheet" href="dist/css/AdminLTE.min.css"-->
   <!-- AdminLTE Skins. We have chosen the skin-blue for this starter
@@ -70,7 +70,7 @@ desired effect
 |---------------------------------------------------------|
 -->
 <body class="hold-transition skin-blue sidebar-mini">
-<div class="wrapper" id="app">
+<div class="wrapper">
 
   <!-- Main Header -->
   <header class="main-header">
@@ -294,7 +294,7 @@ desired effect
                 <ul class="treeview-menu">
                     <li><a href="#">Link in level 3</a></li>
                 </ul>
-            </li>
+            </li>  
             <li><a href="#">Link in level 2.2</a></li>
           </ul>
         </li>
@@ -313,8 +313,8 @@ desired effect
     <!-- Content Header (Page header) -->
     <section class="content-header">
       <h1>
-        访问记录
-        <small>访问列表</small>
+        Page Header
+        <small>Optional description</small>
       </h1>
       <ol class="breadcrumb">
         <li><a href="#"><i class="fa fa-dashboard"></i> Level</a></li>
@@ -324,67 +324,8 @@ desired effect
 
     <!-- Main content -->
     <section class="content" >
+      <div id='app'></div>
       <!-- Your Page Content Here -->
-
-
-	<div class="box">
-            <div class="box-header">
-              <h3 class="box-title">Hover Data Table</h3>
-            </div>
-            <!-- /.box-header -->
-            <div class="box-body">
-              <div id="example2_wrapper" class="dataTables_wrapper form-inline dt-bootstrap"><div class="row"><div class="col-sm-6"></div><div class="col-sm-6"></div></div><div class="row"><div class="col-sm-12"><table id="example2" class="table table-bordered table-hover dataTable" role="grid" aria-describedby="example2_info">
-                <thead>
-
-                <tr role="row">
-                 <th class="sorting_asc" tabindex="0" aria-controls="example2" rowspan="1" colspan="1" aria-sort="ascending" aria-label="Rendering engine: activate to sort column descending">序号</th>
-               <th class="sorting" tabindex="0" aria-controls="example2" rowspan="1" colspan="1" aria-label="Browser: activate to sort column ascending">访问地址</th><th class="sorting" tabindex="0" aria-controls="example2" rowspan="1" colspan="1" aria-label="Platform(s): activate to sort column ascending">状态码</th>
-               <th class="sorting" tabindex="0" aria-controls="example2" rowspan="1" colspan="1" aria-label="Engine version: activate to sort column ascending">IP地址</th>
-               <th class="sorting" tabindex="0" aria-controls="example2" rowspan="1" colspan="1" aria-label="CSS grade: activate to sort column ascending">时间</th></tr>
-                </thead>
-                <tbody>
-                <template v-for="(item, index) in requestData">
-
-				<!--class even-->
-                <tr role="row" class="odd" v-if="index%2 === 1">
-                  <td class="sorting_1">{{item.ID}}</td>
-                  <td width="50%" data-toggle="tooltip" data-placement="top" v-bind:title="item.Host">{{item.RequestURI}}</td>
-                  <td>{{item.StatusCode}}</td>
-                  <td>{{item.SrcIp}}</td>
-                  <td>{{item.CreatedAt}}</td>
-                </tr>
-
-                <tr role="row" class="even" v-else>
-                  <td class="sorting_1">{{item.ID}}</td>
-                  <td width="50%" data-toggle="tooltip" data-placement="top" v-bind:title="item.Host">{{item.RequestURI}}</td>
-                  <td>{{item.StatusCode}}</td>
-                  <td>{{item.SrcIp}}</td>
-                  <td>{{item.CreatedAt}}</td>
-                </tr>
-               </template>
-
-               </tbody>
-                <tfoot>
-                <tr><th rowspan="1" colspan="1">序号</th><th rowspan="1" colspan="1">访问地址</th><th rowspan="1" colspan="1">状态吗</th><th rowspan="1" colspan="1">IP地址</th><th rowspan="1" colspan="1">时间</th></tr>
-                </tfoot>
-
-              </table></div></div><div class="row"><div class="col-sm-5"><div class="dataTables_info" id="example2_info" role="status" aria-live="polite">Showing 1 to 10 of 57 entries</div></div><div class="col-sm-7"><div class="dataTables_paginate paging_simple_numbers" id="example2_paginate"><ul class="pagination">
-                  <li class="paginate_button previous disabled" id="example2_previous"><a href="#" aria-controls="example2" data-dt-idx="0" tabindex="0">Previous</a></li>
-
-                 <template v-for="(p,index) in pages">
-                  <li class="paginate_button active" v-if="current_page===p" ><a v-on:click="getpage(p)" aria-controls="example2" v-bind:data-dt-idx="p" tabindex="0">{{p}}</a></li>
-
-                  <li class="paginate_button"  v-else><a v-on:click="getpage(p)" aria-controls="example2" v-bind:data-dt-idx="p" tabindex="0">{{p}}</a></li>
-              </template>
-
-                  <li class="paginate_button next" id="example2_next"><a href="#"  aria-controls="example2" data-dt-idx="7" tabindex="0">Next</a></li></ul></div></div></div></div>
-            </div>
-            <!-- /.box-body -->
-          </div>
-
-
-
-
 
     </section>
     <!-- /.content -->
@@ -499,39 +440,20 @@ desired effect
 
     <script>
     new Vue({
-      el: '#app',
+      el: '#menulist',
       data () {
         return {
-          menudata: null,
-          requestData: null,
-          pages: [1,2,3,4,5,6,7,8,9,10],
-          current_page: 1
+          menudata: null
         }
       },
-      methods: {
-          getpage:function(page){
-              var that = this
-              that.current_page = page
-              axios
-                .get('/api/?page='+that.current_page+'&pagesize=20')
-                .then(response => (this.requestData = response.data))
-          },
-     },
       mounted () {
         axios
           .get('/html/menulist.html')
           .then(response => (this.menudata = response.data))
-        axios
-          .get('/api/?page=0&pagesize=20')
-          .then(response => (this.requestData = response.data))
       }
     })
     </script>
-
-    <style>
-    td {word-wrap:break-word;word-break:break-all;}
-    </style>
-
+ 
 
 
 <!-- Optionally, you can add Slimscroll and FastClick plugins.

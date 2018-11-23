@@ -79,6 +79,15 @@ func FindRequestData(db *gorm.DB) (reqs  []RequestTable){
     return reqs
 }
 
+// query page data
+func FindRequestDataPage(db * gorm.DB,page int, pagesize int) (reqs []RequestTable){
+
+	db.Order("ID desc").Limit(pagesize).Offset(page * pagesize).Find(&reqs)
+	return reqs
+
+}
+
+
 func FindRequest(db * gorm.DB,SrcIp string,SrcPort string,DstIp string,DstPort string) (req RequestTable){
 
 	db.Where(RequestTable{IsResp:1, SrcIp: DstIp, SrcPort:DstPort,DstIp:SrcIp,DstPort:SrcPort}).First(&req)
