@@ -15,6 +15,7 @@ func InitHdServer (){
 
   api := router.Group("/api")
   api.GET("/",rootPath)
+  api.GET("/request",requestPath)
 
   // default port :8080
   router.Run()
@@ -40,5 +41,17 @@ func rootPath(c *gin.Context){
   data := FindRequestDataPage(db,defaultpage,defaultpagesize)
 
   c.JSON(200,data)
+
+}
+
+func requestPath(c *gin.Context){
+
+    var defaultId = 1;
+    if id, isExist := c.GetQuery("id"); isExist == true {
+          defaultId, _ = strconv.Atoi(id)
+    }
+    data := FindRequestById(db,defaultId)
+
+    c.JSON(200,data)
 
 }

@@ -95,4 +95,12 @@ func FindRequest(db * gorm.DB,SrcIp string,SrcPort string,DstIp string,DstPort s
 	return req
 }
 
+func FindRequestById(db * gorm.DB,id int)(RequestTable){
 
+    var req RequestTable;
+    //returnJson := make(map[string]interface{})
+    
+    db.First(&req,id)
+
+    return req
+}

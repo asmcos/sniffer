@@ -314,7 +314,7 @@ desired effect
     <section class="content-header">
       <h1>
         访问记录
-        <small>访问列表</small>
+        <small>详细信息</small>
       </h1>
       <ol class="breadcrumb">
         <li><a href="#"><i class="fa fa-dashboard"></i> Level</a></li>
@@ -325,65 +325,62 @@ desired effect
     <!-- Main content -->
     <section class="content" >
       <!-- Your Page Content Here -->
+      <div class="box box-warning">
+      <div class="box-header with-border">
+        <h3 class="box-title">通用信息</h3>
+        <div class="box-tools pull-right">
+          <button class="btn btn-box-tool" data-widget="collapse" data-toggle="tooltip" title="Collapse"><i class="fa fa-minus"></i></button>
+          <button class="btn btn-box-tool" data-widget="remove" data-toggle="tooltip" title="Remove"><i class="fa fa-times"></i></button>
+        </div><!-- /.box-tools -->
+      </div><!-- /.box-header -->
+      <div class="box-body">
+        The body of the box
+      </div><!-- /.box-body -->
+     </div><!-- /.box -->
 
 
-	<div class="box">
-            <div class="box-header">
-              <h3 class="box-title">Hover Data Table</h3>
-            </div>
-            <!-- /.box-header -->
-            <div class="box-body">
-              <div id="example2_wrapper" class="dataTables_wrapper form-inline dt-bootstrap"><div class="row"><div class="col-sm-6"></div><div class="col-sm-6"></div></div><div class="row"><div class="col-sm-12"><table id="example2" class="table table-bordered table-hover dataTable" role="grid" aria-describedby="example2_info">
-                <thead>
+     <!-- Your Page Content Here -->
+     <div class="box box-info">
+     <div class="box-header with-border">
+       <h3 class="box-title">请求头</h3>
+       <div class="box-tools pull-right">
+         <button class="btn btn-box-tool" data-widget="collapse" data-toggle="tooltip" title="Collapse"><i class="fa fa-minus"></i></button>
+         <button class="btn btn-box-tool" data-widget="remove" data-toggle="tooltip" title="Remove"><i class="fa fa-times"></i></button>
+       </div><!-- /.box-tools -->
+     </div><!-- /.box-header -->
+     <div class="box-body">
+       The body of the box
+     </div><!-- /.box-body -->
+    </div><!-- /.box -->
 
-                <tr role="row">
-                 <th class="sorting_asc" tabindex="0" aria-controls="example2" rowspan="1" colspan="1" aria-sort="ascending" aria-label="Rendering engine: activate to sort column descending">序号</th>
-               <th class="sorting" tabindex="0" aria-controls="example2" rowspan="1" colspan="1" aria-label="Browser: activate to sort column ascending">访问地址</th><th class="sorting" tabindex="0" aria-controls="example2" rowspan="1" colspan="1" aria-label="Platform(s): activate to sort column ascending">状态码</th>
-               <th class="sorting" tabindex="0" aria-controls="example2" rowspan="1" colspan="1" aria-label="Engine version: activate to sort column ascending">IP地址</th>
-               <th class="sorting" tabindex="0" aria-controls="example2" rowspan="1" colspan="1" aria-label="CSS grade: activate to sort column ascending">时间</th></tr>
-                </thead>
-                <tbody>
-                <template v-for="(item, index) in requestData">
+    <!-- Your Page Content Here -->
+    <div class="box box-success">
+    <div class="box-header with-border">
+      <h3 class="box-title">服务器回复头</h3>
+      <div class="box-tools pull-right">
+        <button class="btn btn-box-tool" data-widget="collapse" data-toggle="tooltip" title="Collapse"><i class="fa fa-minus"></i></button>
+        <button class="btn btn-box-tool" data-widget="remove" data-toggle="tooltip" title="Remove"><i class="fa fa-times"></i></button>
+      </div><!-- /.box-tools -->
+    </div><!-- /.box-header -->
+    <div class="box-body">
+      The body of the box
+    </div><!-- /.box-body -->
+   </div><!-- /.box -->
 
-				<!--class even-->
-                <tr role="row" class="odd" v-if="index%2 === 1">
-                  <td class="sorting_1">{{item.ID}}</td>
-                  <td width="50%" data-toggle="tooltip" data-placement="top" v-bind:title="item.Host">
-                      <a v-bind:href="'./detail.html?id='+item.ID">{{item.RequestURI}}
-                  </a></td>
-                  <td>{{item.StatusCode}}</td>
-                  <td>{{item.SrcIp}}</td>
-                  <td>{{item.CreatedAt}}</td>
-                </tr>
 
-                <tr role="row" class="even" v-else>
-                  <td class="sorting_1">{{item.ID}}</td>
-                  <td width="50%" data-toggle="tooltip" data-placement="top" v-bind:title="item.Host">
-                      <a v-bind:href="'./detail.html?id='+item.ID"> {{item.RequestURI}}</a></td>
-                  <td>{{item.StatusCode}}</td>
-                  <td>{{item.SrcIp}}</td>
-                  <td>{{item.CreatedAt}}</td>
-                </tr>
-               </template>
-
-               </tbody>
-                <tfoot>
-                <tr><th rowspan="1" colspan="1">序号</th><th rowspan="1" colspan="1">访问地址</th><th rowspan="1" colspan="1">状态码</th><th rowspan="1" colspan="1">IP地址</th><th rowspan="1" colspan="1">时间</th></tr>
-                </tfoot>
-
-              </table></div></div><div class="row"><div class="col-sm-5"><div class="dataTables_info" id="example2_info" role="status" aria-live="polite">Showing 1 to 10 of 57 entries</div></div><div class="col-sm-7"><div class="dataTables_paginate paging_simple_numbers" id="example2_paginate"><ul class="pagination">
-                  <li class="paginate_button previous disabled" id="example2_previous"><a href="#" aria-controls="example2" data-dt-idx="0" tabindex="0">Previous</a></li>
-
-                 <template v-for="(p,index) in pages">
-                  <li class="paginate_button active" v-if="current_page===p" ><a v-on:click="getpage(p)" aria-controls="example2" v-bind:data-dt-idx="p" tabindex="0">{{p}}</a></li>
-
-                  <li class="paginate_button"  v-else><a v-on:click="getpage(p)" aria-controls="example2" v-bind:data-dt-idx="p" tabindex="0">{{p}}</a></li>
-              </template>
-
-                  <li class="paginate_button next" id="example2_next"><a href="#"  aria-controls="example2" data-dt-idx="7" tabindex="0">Next</a></li></ul></div></div></div></div>
-            </div>
-            <!-- /.box-body -->
-          </div>
+   <!-- Your Page Content Here -->
+   <div class="box box-danger">
+   <div class="box-header with-border">
+     <h3 class="box-title">请求参数</h3>
+     <div class="box-tools pull-right">
+       <button class="btn btn-box-tool" data-widget="collapse" data-toggle="tooltip" title="Collapse"><i class="fa fa-minus"></i></button>
+       <button class="btn btn-box-tool" data-widget="remove" data-toggle="tooltip" title="Remove"><i class="fa fa-times"></i></button>
+     </div><!-- /.box-tools -->
+   </div><!-- /.box-header -->
+   <div class="box-body">
+     The body of the box
+   </div><!-- /.box-body -->
+  </div><!-- /.box -->
 
 
 
@@ -501,6 +498,14 @@ desired effect
     <script src="https://cdn.bootcss.com/axios/0.19.0-beta.1/axios.js"></script>
 
     <script>
+
+    $.urlParam = function(name){
+    	var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
+    	return results[1] || 0;
+    }
+
+    var requestID = $.urlParam("id")
+
     new Vue({
       el: '#app',
       data () {
@@ -527,14 +532,15 @@ desired effect
           .then(response => (this.menudata = response.data))
           .then(function(){
               that.$nextTick(function () {
-                $("#menu1").addClass("active")
+                $("#menu2").addClass("active")
                 // Code that will run only after the
                 // entire view has been rendered
             })
           })
         axios
-          .get('/api/?page=0&pagesize=20')
+          .get('/api/request?id='+requestID)
           .then(response => (this.requestData = response.data))
+
       }
     })
     </script>
