@@ -334,9 +334,83 @@ desired effect
         </div><!-- /.box-tools -->
       </div><!-- /.box-header -->
       <div class="box-body">
-        The body of the box
+          <table class="table table-hover">
+                  <tbody><tr>
+                    <th>名字</th>
+                    <th width="85%;">内容</th>
+
+                  </tr>
+                  <tr>
+                    <td>CreatedTime</td>
+                    <td>{{requestData.CreatedAt}}</td>
+                  </tr>
+                  <tr>
+                    <td>SrcIP/Port</td>
+                    <td>{{requestData.SrcIp}} : {{requestData.SrcPort}}</td>
+                  </tr>
+
+                  <tr>
+                    <td>DstIP/Port</td>
+                    <td>{{requestData.DstIp}} : {{requestData.DstPort}}</td>
+                  </tr>
+
+                  <tr>
+                    <td>Host</td>
+                    <td>{{requestData.Host}}</td>
+                  </tr>
+
+                  <tr>
+                    <td>URL</td>
+                    <td>{{requestData.RequestURI}}</td>
+                  </tr>
+
+                  <tr>
+                    <td>StatusCode</td>
+                    <td>{{requestData.StatusCode}}</td>
+                  </tr>
+
+
+
+                </tbody></table>
       </div><!-- /.box-body -->
      </div><!-- /.box -->
+
+     <!-- Your Page Content Here -->
+     <div class="box box-danger">
+     <div class="box-header with-border">
+       <h3 class="box-title">回复内容</h3>
+       <div class="box-tools pull-right">
+         <button class="btn btn-box-tool" data-widget="collapse" data-toggle="tooltip" title="Collapse"><i class="fa fa-minus"></i></button>
+         <button class="btn btn-box-tool" data-widget="remove" data-toggle="tooltip" title="Remove"><i class="fa fa-times"></i></button>
+       </div><!-- /.box-tools -->
+     </div><!-- /.box-header -->
+     <div class="box-body">
+         <table class="table table-hover">
+                 <tbody><tr>
+                   <th>名字</th>
+                   <th width="85%;">内容</th>
+
+                 </tr>
+                 <tr>
+                   <td>CreatedTime</td>
+                   <td>{{requestData.resp.CreatedAt}}</td>
+                 </tr>
+
+                 <tr>
+                   <td>SrcIP/Port</td>
+                   <td>{{requestData.resp.SrcIp}} : {{requestData.resp.SrcPort}}</td>
+                 </tr>
+
+                 <tr>
+                   <td>DstIP/Port</td>
+                   <td>{{requestData.resp.DstIp}} : {{requestData.resp.DstPort}}</td>
+                 </tr>
+
+
+               </tbody></table>
+     </div><!-- /.box-body -->
+    </div><!-- /.box -->
+
 
 
      <!-- Your Page Content Here -->
@@ -368,19 +442,6 @@ desired effect
    </div><!-- /.box -->
 
 
-   <!-- Your Page Content Here -->
-   <div class="box box-danger">
-   <div class="box-header with-border">
-     <h3 class="box-title">请求参数</h3>
-     <div class="box-tools pull-right">
-       <button class="btn btn-box-tool" data-widget="collapse" data-toggle="tooltip" title="Collapse"><i class="fa fa-minus"></i></button>
-       <button class="btn btn-box-tool" data-widget="remove" data-toggle="tooltip" title="Remove"><i class="fa fa-times"></i></button>
-     </div><!-- /.box-tools -->
-   </div><!-- /.box-header -->
-   <div class="box-body">
-     The body of the box
-   </div><!-- /.box-body -->
-  </div><!-- /.box -->
 
 
 
@@ -395,7 +456,7 @@ desired effect
   <footer class="main-footer">
     <!-- To the right -->
     <div class="pull-right hidden-xs">
-      good luck!
+      Good Luck!
     </div>
     <!-- Default to the left -->
     <strong>Copyright &copy; 2017 - 2018 <a href="#">JSAdmin</a>.</strong> All rights reserved.

@@ -6,6 +6,7 @@ package main
 
 import (
         "github.com/jinzhu/gorm"
+        "encoding/json"
         _ "github.com/jinzhu/gorm/dialects/sqlite"
         _ "fmt"
 )
@@ -40,7 +41,7 @@ func init_db()(newdb *gorm.DB) {
 
         newdb, _ = gorm.Open("sqlite3", "./httpdump.db")
 
-		// newdb.LogMode(true)
+		//newdb.LogMode(true)
 
         newdb.AutoMigrate(&RequestTable{})
         newdb.AutoMigrate(&ResponseTable{})
@@ -95,12 +96,27 @@ func FindRequest(db * gorm.DB,SrcIp string,SrcPort string,DstIp string,DstPort s
 	return req
 }
 
-func FindRequestById(db * gorm.DB,id int)(RequestTable){
+func FindRequestById(db * gorm.DB,id int)(map[string]interface{}){
 
     var req RequestTable;
-    //returnJson := make(map[string]interface{})
-    
+    var resp ResponseTable;
+
+    returnJson := make(map[string]interface{})
+    respJson := make(map[string]interface{})
+
     db.First(&req,id)
 
-    return req
+    // converting to map
+    inrec, _ := json.Marshal(&req)
+    json.Unmarshal(inrec, &returnJson)
+
+    db.Model(&req).Related(&resp, "RequestRefer")
+
+    // converting to map
+    inresp, _ := json.Marshal(&resp)
+    json.Unmarshal(inresp, &respJson)
+
+    returnJson["resp"] = respJson
+
+    return returnJson
 }

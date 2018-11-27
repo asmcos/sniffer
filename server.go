@@ -4,6 +4,7 @@ import (
   "github.com/gin-gonic/gin"
   "net/http"
   "strconv"
+  _ "fmt"
 )
 
 func InitHdServer (){
@@ -51,6 +52,7 @@ func requestPath(c *gin.Context){
           defaultId, _ = strconv.Atoi(id)
     }
     data := FindRequestById(db,defaultId)
+
 
     c.JSON(200,data)
 
