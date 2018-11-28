@@ -13,6 +13,7 @@ import (
 	"log"
 	"fmt"
 	"bytes"
+	"strconv"
 	"strings"
 	"io/ioutil"
 	"net/http"
@@ -30,7 +31,11 @@ type httpStreamFactory struct{}
 type httpStream struct {
 	net, transport gopacket.Flow
 	r              tcpreader.ReaderStream
+	id             uint
 }
+
+
+
 
 func (h *httpStream)GetIpPort()(SrcIp string,DstIp string,SrcPort string,DstPort string){
     sip,dip := h.net.Endpoints()
@@ -93,9 +98,19 @@ func ReadAll(resp *http.Response) []byte {
 
 func (h *httpStream) runResponse(buf * bufio.Reader) {
 
+	fmt.Println("\n\r2->",h.net,h.transport)
+
+	sip,dip,sport,dport := h.GetIpPort()
+
+	req := FindRequest(db,sip,sport,dip,dport)
+
+	id := InsertResponseData(db,&ResponseTable{
+      SrcIp:sip,SrcPort:sport,
+      DstIp:dip,DstPort:dport},&req)
+	h.id = id
 
 	for {
-		resp, err := http.ReadResponse(buf,nil)
+		resp, err := ReadResponse(buf)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			// We must read until we see an EOF... very important!
 			return
@@ -103,12 +118,23 @@ func (h *httpStream) runResponse(buf * bufio.Reader) {
 			log.Println("Error reading stream", h.net, h.transport, ":", err)
 			return
 		} else {
-			bodyBytes := ReadAll(resp)
-			printResponse(resp,h,bodyBytes)
+			UpdateResponseData(db,&ResponseTable{StatusCode:resp.StatusCode},&req,h.id)
+			printResponse(resp,h)
+			tcpreader.DiscardBytesToEOF(buf)
+
 		}
 	}
 }
 func (h *httpStream) runRequest(buf *bufio.Reader) {
+
+
+	sip,dip,sport,dport := h.GetIpPort()
+
+	id :=InsertRequestData(db,&RequestTable{
+	      SrcIp:sip,SrcPort:sport,
+	      DstIp:dip,DstPort:dport})
+
+	h.id = id
 
 	for {
 		req, err := http.ReadRequest(buf)
@@ -118,9 +144,20 @@ func (h *httpStream) runRequest(buf *bufio.Reader) {
 		} else if err != nil {
 			log.Println("Error reading stream", h.net, h.transport, ":", err)
 		} else {
+			fmt.Println("\n\r1->",h.net,h.transport)
+
+			UpdateRequestData(db,&RequestTable{
+				  Host:req.Host,
+				  RequestURI:req.RequestURI,
+			      SrcIp:sip,SrcPort:sport,
+			      DstIp:dip,DstPort:dport},h.id)
+
 			bodyBytes := tcpreader.DiscardBytesToEOF(req.Body)
+			//tcpreader.DiscardBytesToEOF(req.Body)
 			req.Body.Close()
 			printRequest(req,h,bodyBytes)
+
+
 
 		}
 	}
@@ -134,16 +171,9 @@ func printHeader(h http.Header){
 
 func printRequest(req *http.Request,h *httpStream,bodyBytes int){
 
+
+
 	fmt.Println("\n\r\n\r")
-
-    sip,dip,sport,dport := h.GetIpPort()
-
-    InsertRequestData(db,&RequestTable{RequestURI:req.RequestURI,
-      Host:req.Host,
-      SrcIp:sip,SrcPort:sport,
-      DstIp:dip,DstPort:dport})
-
-	fmt.Println(h.net,h.transport)
 
 	fmt.Println("\n\r")
     fmt.Println(req.Host)
@@ -152,18 +182,7 @@ func printRequest(req *http.Request,h *httpStream,bodyBytes int){
 
 }
 
-func printResponse(resp *http.Response,h *httpStream,bodyBytes []byte){
-
-    sip,dip,sport,dport := h.GetIpPort()
-
-	req := FindRequest(db,sip,sport,dip,dport)
-
-	InsertResponseData(db,&ResponseTable{StatusCode:resp.StatusCode,
-      SrcIp:sip,SrcPort:sport,
-      DstIp:dip,DstPort:dport},&req)
-
-	fmt.Println(req)
-
+func printResponse(resp *http.Response,h *httpStream){
 
 	fmt.Println("\n\r")
 	fmt.Println(resp.Proto, resp.Status)
@@ -195,3 +214,75 @@ func  isResponse(data []byte) bool {
 	firstLine, _ := tp.ReadLine()
 	return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")
 }
+
+
+/****** code from net /http / response.go ******/
+
+func ReadResponse(r *bufio.Reader) (*http.Response, error) {
+	tp := textproto.NewReader(r)
+	resp := &http.Response{
+	}
+
+	// Parse the first line of the response.
+	line, err := tp.ReadLine()
+	if err != nil {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+		return nil, err
+	}
+	if i := strings.IndexByte(line, ' '); i == -1 {
+		return nil, &badStringError{"malformed HTTP response", line}
+	} else {
+		resp.Proto = line[:i]
+		resp.Status = strings.TrimLeft(line[i+1:], " ")
+	}
+	statusCode := resp.Status
+	if i := strings.IndexByte(resp.Status, ' '); i != -1 {
+		statusCode = resp.Status[:i]
+	}
+	if len(statusCode) != 3 {
+		return nil, &badStringError{"malformed HTTP status code", statusCode}
+	}
+	resp.StatusCode, err = strconv.Atoi(statusCode)
+	if err != nil || resp.StatusCode < 0 {
+		return nil, &badStringError{"malformed HTTP status code", statusCode}
+	}
+	var ok bool
+	if resp.ProtoMajor, resp.ProtoMinor, ok = http.ParseHTTPVersion(resp.Proto); !ok {
+		return nil, &badStringError{"malformed HTTP version", resp.Proto}
+	}
+
+	// Parse the response headers.
+	mimeHeader, err := tp.ReadMIMEHeader()
+	if err != nil {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+		return nil, err
+	}
+	resp.Header = http.Header(mimeHeader)
+
+	fixPragmaCacheControl(resp.Header)
+
+	return resp, nil
+}
+
+// RFC 7234, section 5.4: Should treat
+//	Pragma: no-cache
+// like
+//	Cache-Control: no-cache
+func fixPragmaCacheControl(header http.Header) {
+	if hp, ok := header["Pragma"]; ok && len(hp) > 0 && hp[0] == "no-cache" {
+		if _, presentcc := header["Cache-Control"]; !presentcc {
+			header["Cache-Control"] = []string{"no-cache"}
+		}
+	}
+}
+// from net/http/request.go
+type badStringError struct {
+	what string
+	str  string
+}
+
+func (e *badStringError) Error() string { return fmt.Sprintf("%s %q", e.what, e.str) }

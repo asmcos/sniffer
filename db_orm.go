@@ -49,12 +49,18 @@ func init_db()(newdb *gorm.DB) {
         return newdb
 }
 
+
 // insert a request record
-func InsertRequestData(db * gorm.DB,req *RequestTable ){
+func InsertRequestData(db * gorm.DB,req *RequestTable ) (id uint){
     req.IsResp = 1
     db.Create(req)
+    return req.ID
 }
 
+//update a request record
+func UpdateRequestData(db * gorm.DB,req *RequestTable,id uint ){
+    db.Model(&RequestTable{}).Where("id=?",id).Updates(req)
+}
 func UpdateRequestIsResp(db *gorm.DB,req *RequestTable,StatusCode int){
 
 	// IsResp , Column name is_resp
@@ -62,14 +68,26 @@ func UpdateRequestIsResp(db *gorm.DB,req *RequestTable,StatusCode int){
 	db.Model(req).Updates(map[string]interface{}{"is_resp":2,"status_code":StatusCode})
 }
 
-//insert response record
-func InsertResponseData(db *gorm.DB,resp * ResponseTable,req *RequestTable){
-	// update request status
-	UpdateRequestIsResp(db,req,resp.StatusCode)
 
+//insert response record
+func InsertResponseData(db *gorm.DB,resp * ResponseTable,req *RequestTable)(id uint){
+	// update request status
+    // only update IsResp
+	UpdateRequestIsResp(db,req,0)
 	//save response
 	resp.RequestTable = *req
 	db.Create(resp)
+    return resp.ID
+}
+
+//Update response record
+func UpdateResponseData(db *gorm.DB,resp * ResponseTable,req *RequestTable,id uint){
+	// update request status again,
+    // update StatusCode
+	UpdateRequestIsResp(db,req,resp.StatusCode)
+
+	//update response
+    db.Model(&ResponseTable{}).Where("id=?",id).Updates(resp)
 }
 
 // query all request access record
@@ -88,7 +106,7 @@ func FindRequestDataPage(db * gorm.DB,page int, pagesize int) (reqs []RequestTab
 
 }
 
-
+// Get a request id
 func FindRequest(db * gorm.DB,SrcIp string,SrcPort string,DstIp string,DstPort string) (req RequestTable){
 
 	db.Where(RequestTable{IsResp:1, SrcIp: DstIp, SrcPort:DstPort,DstIp:SrcIp,DstPort:SrcPort}).First(&req)
@@ -96,6 +114,7 @@ func FindRequest(db * gorm.DB,SrcIp string,SrcPort string,DstIp string,DstPort s
 	return req
 }
 
+// Get request and response information
 func FindRequestById(db * gorm.DB,id int)(map[string]interface{}){
 
     var req RequestTable;
