@@ -340,10 +340,16 @@ desired effect
                     <th width="85%;">内容</th>
 
                   </tr>
+
+                  <tr>
+                    <td>第一行</td>
+                    <td>{{requestData.FirstLine}}</td>
+                  </tr>
                   <tr>
                     <td>CreatedTime</td>
                     <td>{{requestData.CreatedAt}}</td>
                   </tr>
+
                   <tr>
                     <td>SrcIP/Port</td>
                     <td>{{requestData.SrcIp}} : {{requestData.SrcPort}}</td>
@@ -392,6 +398,10 @@ desired effect
 
                  </tr>
                  <tr>
+                   <td>第一行</td>
+                   <td>{{requestData.resp.FirstLine}}</td>
+                 </tr>
+                 <tr>
                    <td>CreatedTime</td>
                    <td>{{requestData.resp.CreatedAt}}</td>
                  </tr>
@@ -423,7 +433,23 @@ desired effect
        </div><!-- /.box-tools -->
      </div><!-- /.box-header -->
      <div class="box-body">
-       The body of the box
+
+         <table class="table table-hover">
+                 <tbody><tr>
+                   <th>名字</th>
+                   <th width="85%;">内容</th>
+
+                 </tr>
+                 <template v-for="item in requestData.reqh">
+                 <tr>
+                   <td>{{item.Name}}</td>
+                   <td> {{item.Values}}</td>
+                 </tr>
+                </template>
+
+               </tbody></table>
+
+
      </div><!-- /.box-body -->
     </div><!-- /.box -->
 
@@ -437,7 +463,21 @@ desired effect
       </div><!-- /.box-tools -->
     </div><!-- /.box-header -->
     <div class="box-body">
-      The body of the box
+        <table class="table table-hover">
+                <tbody><tr>
+                  <th>名字</th>
+                  <th width="85%;">内容</th>
+
+                </tr>
+                <template v-for="item in requestData.resph">
+                <tr>
+                  <td>{{item.Name}}</td>
+                  <td> {{item.Values}}</td>
+                </tr>
+               </template>
+
+              </tbody></table>
+
     </div><!-- /.box-body -->
    </div><!-- /.box -->
 
@@ -577,15 +617,7 @@ desired effect
           current_page: 1
         }
       },
-      methods: {
-          getpage:function(page){
-              var that = this
-              that.current_page = page
-              axios
-                .get('/api/?page='+that.current_page+'&pagesize=20')
-                .then(response => (this.requestData = response.data))
-          },
-     },
+
       mounted () {
         var that = this
         axios
@@ -602,7 +634,9 @@ desired effect
           .get('/api/request?id='+requestID)
           .then(response => (this.requestData = response.data))
 
+
       }
+
     })
     </script>
 

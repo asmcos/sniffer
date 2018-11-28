@@ -15,7 +15,6 @@ import (
 	"bytes"
 	"strconv"
 	"strings"
-	"io/ioutil"
 	"net/http"
 	"net/textproto"
 
@@ -82,19 +81,6 @@ func (h *httpStream) ReadData(){
 
 }
 
-func ReadAll(resp *http.Response) []byte {
-
-    defer resp.Body.Close()
-
-    var Body = resp.Body
-
-    content, err := ioutil.ReadAll(Body)
-    if err != nil {
-        return nil
-    }
-
-    return content
-}
 
 func (h *httpStream) runResponse(buf * bufio.Reader) {
 
@@ -118,7 +104,13 @@ func (h *httpStream) runResponse(buf * bufio.Reader) {
 			log.Println("Error reading stream", h.net, h.transport, ":", err)
 			return
 		} else {
-			UpdateResponseData(db,&ResponseTable{StatusCode:resp.StatusCode},&req,h.id)
+			firstline := fmt.Sprintf("%s %s",resp.Proto, resp.Status)
+			UpdateResponseData(db,&ResponseTable{FirstLine:firstline,
+				StatusCode:resp.StatusCode},&req,h.id)
+
+			// type 1 is request, 2 is response
+			HeaderToDB(resp.Header,2,h.id)
+
 			printResponse(resp,h)
 			tcpreader.DiscardBytesToEOF(buf)
 
@@ -146,11 +138,16 @@ func (h *httpStream) runRequest(buf *bufio.Reader) {
 		} else {
 			fmt.Println("\n\r1->",h.net,h.transport)
 
-			UpdateRequestData(db,&RequestTable{
+			firstline := fmt.Sprintf("%s %s %s",req.Method, req.RequestURI, req.Proto)
+
+			UpdateRequestData(db,&RequestTable{FirstLine:firstline,
 				  Host:req.Host,
 				  RequestURI:req.RequestURI,
 			      SrcIp:sip,SrcPort:sport,
 			      DstIp:dip,DstPort:dport},h.id)
+
+			// type 1 is request, 2 is response
+			HeaderToDB(req.Header,1,h.id)
 
 			bodyBytes := tcpreader.DiscardBytesToEOF(req.Body)
 			//tcpreader.DiscardBytesToEOF(req.Body)
@@ -160,6 +157,15 @@ func (h *httpStream) runRequest(buf *bufio.Reader) {
 
 
 		}
+	}
+}
+
+func HeaderToDB(h http.Header,t uint,id uint){
+
+	for n,v :=range h{
+		val := strings.Join(v,", ")
+
+		InsertHeaders(db,n ,val ,t ,id )
 	}
 }
 

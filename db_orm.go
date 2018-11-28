@@ -13,6 +13,7 @@ import (
 
 type RequestTable struct {
         gorm.Model
+        FirstLine string
         RequestURI string
         Host       string
         SrcIp      string
@@ -29,6 +30,7 @@ type ResponseTable struct{
 	RequestTable RequestTable `gorm:"foreignkey:RequestRefer"`
 	RequestRefer int
 
+    FirstLine    string
 	StatusCode   int
     SrcIp        string
     SrcPort      string
@@ -36,19 +38,29 @@ type ResponseTable struct{
     DstPort      string
 }
 
+type HeaderTable struct{
+    gorm.Model
+    Type       uint // 1.request header ,2. Response
+    Parentid   uint // requestTable or responstTable ID
+    Name        string
+    Values      string
+}
 
 func init_db()(newdb *gorm.DB) {
 
         newdb, _ = gorm.Open("sqlite3", "./httpdump.db")
 
-		//newdb.LogMode(true)
+		newdb.LogMode(true)
 
-        newdb.AutoMigrate(&RequestTable{})
-        newdb.AutoMigrate(&ResponseTable{})
+        newdb.AutoMigrate(&RequestTable{},&ResponseTable{},&HeaderTable{})
 
         return newdb
 }
 
+func InsertHeaders(db *gorm.DB,n string,v string,t uint,id uint){
+
+    db.Create(&HeaderTable{Type:t,Parentid:id,Name:n,Values:v})
+}
 
 // insert a request record
 func InsertRequestData(db * gorm.DB,req *RequestTable ) (id uint){
@@ -119,9 +131,12 @@ func FindRequestById(db * gorm.DB,id int)(map[string]interface{}){
 
     var req RequestTable;
     var resp ResponseTable;
+    var reqH,respH []HeaderTable;
 
     returnJson := make(map[string]interface{})
     respJson := make(map[string]interface{})
+    reqHJson := make([]map[string]interface{},50)
+    respHJson := make([]map[string]interface{},50)
 
     db.First(&req,id)
 
@@ -136,6 +151,22 @@ func FindRequestById(db * gorm.DB,id int)(map[string]interface{}){
     json.Unmarshal(inresp, &respJson)
 
     returnJson["resp"] = respJson
+
+    // get request Header
+    db.Where("parentid=? and type=1",req.ID).Find(&reqH)
+    // converting to map
+    inreqh, _ := json.Marshal(&reqH)
+    json.Unmarshal(inreqh, &reqHJson)
+    returnJson["reqh"] = reqHJson
+
+
+    // get response Header
+    db.Where("parentid=? and type=2",resp.ID).Find(&respH)
+    // converting to map
+    inresph, _ := json.Marshal(&respH)
+    json.Unmarshal(inresph, &respHJson)
+    returnJson["resph"] = respHJson
+
 
     return returnJson
 }
