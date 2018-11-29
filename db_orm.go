@@ -46,11 +46,16 @@ type HeaderTable struct{
     Values      string
 }
 
+type returnReqs struct{
+    Reqs   []RequestTable;
+    Total  int;
+}
+
 func init_db()(newdb *gorm.DB) {
 
         newdb, _ = gorm.Open("sqlite3", "./httpdump.db")
 
-		newdb.LogMode(true)
+		//newdb.LogMode(true)
 
         newdb.AutoMigrate(&RequestTable{},&ResponseTable{},&HeaderTable{})
 
@@ -111,10 +116,18 @@ func FindRequestData(db *gorm.DB) (reqs  []RequestTable){
 }
 
 // query page data
-func FindRequestDataPage(db * gorm.DB,page int, pagesize int) (reqs []RequestTable){
+func FindRequestDataPage(db * gorm.DB,page int, pagesize int) (ret returnReqs){
+
+    var reqs []RequestTable;
+    var count int;
 
 	db.Order("ID desc").Limit(pagesize).Offset(page * pagesize).Find(&reqs)
-	return reqs
+
+    db.Table("request_tables").Count(&count)
+
+    ret.Reqs  = reqs
+    ret.Total = count
+	return ret
 
 }
 
