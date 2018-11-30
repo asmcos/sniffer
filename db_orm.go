@@ -81,7 +81,9 @@ func UpdateRequestData(db * gorm.DB,req *RequestTable,id uint ){
 func UpdateRequestIsResp(db *gorm.DB,req *RequestTable,StatusCode int){
 
 	// IsResp , Column name is_resp
-
+    if req.ID == 0 {
+        return
+    }
 	db.Model(req).Updates(map[string]interface{}{"is_resp":2,"status_code":StatusCode})
 }
 
@@ -90,7 +92,7 @@ func UpdateRequestIsResp(db *gorm.DB,req *RequestTable,StatusCode int){
 func InsertResponseData(db *gorm.DB,resp * ResponseTable,req *RequestTable)(id uint){
 	// update request status
     // only update IsResp
-	UpdateRequestIsResp(db,req,0)
+	UpdateRequestIsResp(db,req,resp.StatusCode)
 	//save response
 	resp.RequestTable = *req
 	db.Create(resp)
@@ -101,6 +103,7 @@ func InsertResponseData(db *gorm.DB,resp * ResponseTable,req *RequestTable)(id u
 func UpdateResponseData(db *gorm.DB,resp * ResponseTable,req *RequestTable,id uint){
 	// update request status again,
     // update StatusCode
+
 	UpdateRequestIsResp(db,req,resp.StatusCode)
 
 	//update response
@@ -132,7 +135,7 @@ func FindRequestDataPage(db * gorm.DB,page int, pagesize int) (ret returnReqs){
 }
 
 // Get a request id
-func FindRequest(db * gorm.DB,SrcIp string,SrcPort string,DstIp string,DstPort string) (req RequestTable){
+func FindRequestFirst(db * gorm.DB,SrcIp string,SrcPort string,DstIp string,DstPort string) (req RequestTable){
 
 	db.Where(RequestTable{IsResp:1, SrcIp: DstIp, SrcPort:DstPort,DstIp:SrcIp,DstPort:SrcPort}).First(&req)
 
