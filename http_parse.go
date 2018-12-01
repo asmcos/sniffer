@@ -18,6 +18,7 @@ import (
 	"strings"
 	"net/http"
 	"net/textproto"
+	"io/ioutil"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/tcpassembly"
@@ -82,6 +83,21 @@ func (h *httpStream) ReadData(){
 
 }
 
+func ReadAll(resp *http.Response) []byte {
+
+    defer resp.Body.Close()
+
+    var Body = resp.Body
+
+    content, err := ioutil.ReadAll(Body)
+    if err != nil {
+        return nil
+    }
+
+    return content
+}
+
+
 
 func (h *httpStream) runResponse(buf * bufio.Reader) {
 
@@ -97,7 +113,6 @@ func (h *httpStream) runResponse(buf * bufio.Reader) {
 			return
 		} else if err != nil {
 			log.Println("Error reading stream", h.net, h.transport, ":", err)
-			return
 		} else {
 			// write database
 			req := FindRequestFirst(db,sip,sport,dip,dport)
@@ -122,8 +137,9 @@ func (h *httpStream) runResponse(buf * bufio.Reader) {
 			HeaderToDB(resp.Header,2,h.id)
 
 			printResponse(resp,h)
-			tcpreader.DiscardBytesToEOF(resp.Body)
-			defer resp.Body.Close()
+			ReadAll(resp)
+			//tcpreader.DiscardBytesToEOF(resp.Body)
+			//defer resp.Body.Close()
 
 		}
 	}
