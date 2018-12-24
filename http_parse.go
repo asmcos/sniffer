@@ -18,7 +18,7 @@ import (
 	"strings"
 	"net/http"
 	"net/textproto"
-	"io/ioutil"
+
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/tcpassembly"
@@ -33,6 +33,7 @@ type httpStream struct {
 	net, transport gopacket.Flow
 	r              tcpreader.ReaderStream
 	id             uint
+
 }
 
 
@@ -63,123 +64,127 @@ func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream
 
 func (h *httpStream) ReadData(){
 
-      buf := bufio.NewReader(&h.r)
-	  defer tcpreader.DiscardBytesToEOF(buf)
 
-      data,err := buf.Peek(10)
+	data := make([]byte, int32(*snaplen))
+	var ReadHttp ReaderBytes
 
-	  if err !=nil{
-		return
-	  }
+	for {
+		l, err := h.r.Read(data)
+		if err == io.EOF {
+			if ReadHttp.initiated {
+				ReadHttp.ReassemblyComplete()
+			}
+			return
+		}
+		if l > 10 && isResponse(data[:10]) {
+			if ReadHttp.initiated {
+				ReadHttp.ReassemblyComplete()
+			}
+			ReadHttp = NewReaderBytes()
+			go h.runResponse(ReadHttp)
+		}else if l > 10 && isRequest(data[:10]) {
+			if ReadHttp.initiated {
+				ReadHttp.ReassemblyComplete()
+			}
+			ReadHttp = NewReaderBytes()
+			go h.runRequest(ReadHttp)
+		}
 
-      if isRequest(data){
-        h.runRequest(buf)
-      }
+		//[]Bytes
+		if ReadHttp.initiated {
+			ReadHttp.Reassembled([]Bytes{Bytes{Bytes: data[:l]}})
+		}
 
-      if isResponse(data){
-        h.runResponse(buf)
-      }
+	}
+
 
 
 }
 
-func ReadAll(resp *http.Response) []byte {
-
-    defer resp.Body.Close()
-
-    var Body = resp.Body
-
-    content, err := ioutil.ReadAll(Body)
-    if err != nil {
-        return nil
-    }
-
-    return content
-}
 
 
-
-func (h *httpStream) runResponse(buf * bufio.Reader) {
+func (h *httpStream) runResponse(readhttp ReaderBytes) {
 
 	fmt.Println("\n\r2->",h.net,h.transport)
 
 	sip,dip,sport,dport := h.GetIpPort()
 
+ 	buf := bufio.NewReader(&readhttp)
 
-	for {
-		resp, err := http.ReadResponse(buf,nil)
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			// We must read until we see an EOF... very important!
-			return
-		} else if err != nil {
-			log.Println("Error reading stream", h.net, h.transport, ":", err)
-		} else {
-			// write database
-			req := FindRequestFirst(db,sip,sport,dip,dport)
-			//wait for 5 second
-			for i:= 5; i > 0; i-- {
-				fmt.Println("***-->",req,i)
-				if req.ID == 0 {
-					time.Sleep(1 * time.Second)
-					req = FindRequestFirst(db,sip,sport,dip,dport)
-				} else {
-					break
-				}
+
+	resp, err := http.ReadResponse(buf,nil)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		// We must read until we see an EOF... very important!
+		return
+	} else if err != nil {
+		log.Println("Error reading stream", h.net, h.transport, ":", err)
+	} else {
+		// write database
+		req := FindRequestFirst(db,sip,sport,dip,dport)
+		//wait for 5 second
+		for i:= 5; i > 0; i-- {
+			fmt.Println("***-->",req,i)
+			if req.ID == 0 {
+				time.Sleep(1 * time.Second)
+				req = FindRequestFirst(db,sip,sport,dip,dport)
+			} else {
+				break
 			}
-			firstline := fmt.Sprintf("%s %s",resp.Proto, resp.Status)
-
-			id := InsertResponseData(db,&ResponseTable{FirstLine:firstline,
-				  StatusCode:resp.StatusCode,
-				  SrcIp:sip,SrcPort:sport,
-				  DstIp:dip,DstPort:dport},&req)
-			h.id = id
-			// type 1 is request, 2 is response
-			HeaderToDB(resp.Header,2,h.id)
-
-			printResponse(resp,h)
-			ReadAll(resp)
-			//tcpreader.DiscardBytesToEOF(resp.Body)
-			//defer resp.Body.Close()
-
 		}
+		firstline := fmt.Sprintf("%s %s",resp.Proto, resp.Status)
+
+		id := InsertResponseData(db,&ResponseTable{FirstLine:firstline,
+			  StatusCode:resp.StatusCode,
+			  SrcIp:sip,SrcPort:sport,
+			  DstIp:dip,DstPort:dport},&req)
+		h.id = id
+		// type 1 is request, 2 is response
+		HeaderToDB(resp.Header,2,h.id)
+
+		printResponse(resp,h)
+
+		bodyBytes := buf.Buffered() + DiscardBytesToEOF(&readhttp)
+		log.Println("Body length",bodyBytes)
+
 	}
+
 }
-func (h *httpStream) runRequest(buf *bufio.Reader) {
+func (h *httpStream) runRequest(readhttp ReaderBytes) {
 
 
 	sip,dip,sport,dport := h.GetIpPort()
 
-
-	for {
-		req, err := http.ReadRequest(buf)
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			// We must read until we see an EOF... very important!
-			return
-		} else if err != nil {
-			log.Println("Error reading stream", h.net, h.transport, ":", err)
-		} else {
-			fmt.Println("\n\r1->",h.net,h.transport)
+	buf := bufio.NewReader(&readhttp)
 
 
-			firstline := fmt.Sprintf("%s %s %s",req.Method, req.RequestURI, req.Proto)
+	req, err := http.ReadRequest(buf)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		// We must read until we see an EOF... very important!
+		return
+	} else if err != nil {
+		log.Println("Error reading stream", h.net, h.transport, ":", err)
+	} else {
+		fmt.Println("\n\r1->",h.net,h.transport)
 
-			id := InsertRequestData(db,&RequestTable{FirstLine:firstline,
-				  Host:req.Host,
-				  RequestURI:req.RequestURI,
-				  SrcIp:sip,SrcPort:sport,
-				  DstIp:dip,DstPort:dport})
 
-			h.id = id
+		firstline := fmt.Sprintf("%s %s %s",req.Method, req.RequestURI, req.Proto)
 
-			// type 1 is request, 2 is response
-			HeaderToDB(req.Header,1,h.id)
+		id := InsertRequestData(db,&RequestTable{FirstLine:firstline,
+			  Host:req.Host,
+			  RequestURI:req.RequestURI,
+			  SrcIp:sip,SrcPort:sport,
+			  DstIp:dip,DstPort:dport})
 
-			bodyBytes := tcpreader.DiscardBytesToEOF(req.Body)
-			//tcpreader.DiscardBytesToEOF(req.Body)
-			req.Body.Close()
-			printRequest(req,h,bodyBytes)
+		h.id = id
 
-		}
+		// type 1 is request, 2 is response
+		HeaderToDB(req.Header,1,h.id)
+
+		bodyBytes := buf.Buffered() + DiscardBytesToEOF(&readhttp)
+
+		printRequest(req,h,bodyBytes)
+
+
 	}
 }
 
