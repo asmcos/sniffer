@@ -353,7 +353,7 @@ desired effect
                   </a></td>
                   <td>{{item.StatusCode}}</td>
                   <td>{{item.SrcIp}}</td>
-                  <td>{{item.CreatedAt}}</td>
+                  <td>{{item.CreatedAt|TimeString}}</td>
                 </tr>
 
                 <tr role="row" class="even" v-else>
@@ -362,7 +362,7 @@ desired effect
                       <a v-bind:href="'./detail.html?id='+item.ID"> {{item.RequestURI}}</a></td>
                   <td>{{item.StatusCode}}</td>
                   <td>{{item.SrcIp}}</td>
-                  <td>{{item.CreatedAt}}</td>
+                  <td>{{item.CreatedAt|TimeString}}</td>
                 </tr>
                </template>
 
@@ -511,6 +511,12 @@ desired effect
           pagesize:20,
           lastpage:1,
           current_page: 1
+        }
+      },
+      filters: {
+          TimeString: function (value) {
+              var d = new Date(value)
+              return d.toLocaleString()
         }
       },
       methods: {
