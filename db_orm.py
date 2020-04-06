@@ -9,7 +9,7 @@ engine = create_engine("mysql+mysqldb://cpython:cpython.org@localhost:3306/httpd
 
 Session = sessionmaker(bind=engine)
 ses = Session()
-
+ses.autocommit == True
 Base = declarative_base()
 
 class RequestTable(Base):
@@ -55,12 +55,23 @@ def insert_request(first_line,host,request_uri,src_ip,src_port,dst_ip,dst_port):
             src_ip=src_ip,
             src_port=src_port,
             dst_ip=dst_ip,
-            dst_port=dst_port)
+            dst_port=dst_port,
+            is_resp = '0')
     ses.add(req1)
     ses.commit()
 
+def insert_response(src_ip,src_port,dst_ip,dst_port,status_code):
+    req1 = ses.query(RequestTable).filter(RequestTable.src_ip==dst_ip,
+            RequestTable.src_port==dst_port,
+            RequestTable.dst_ip==src_ip,
+            RequestTable.dst_port==src_port,
+            RequestTable.is_resp=='0').update({'is_resp':'1',
+                'status_code':status_code})
+    ses.commit()
+
 def get_requests(offset,limit):
-    reqs = ses.query(RequestTable) \
+    ses1 = Session()
+    reqs = ses1.query(RequestTable) \
         .order_by(RequestTable.id.desc())\
         .limit(limit)\
         .offset(offset).all()

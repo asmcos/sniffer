@@ -1,7 +1,7 @@
 from scapy.all import *
 from scapy.layers.http import HTTPRequest ,HTTPResponse# import HTTP packet
 from colorama import init, Fore
-from db_orm import insert_request 
+from db_orm import insert_request,insert_response 
 # initialize colorama
 init()
 
@@ -66,6 +66,11 @@ def process_packet(packet):
         port = packet[TCP].dport
         fields = packet[HTTPResponse].fields
         resnum += 1
+        src_ip = packet[IP].src
+        src_port = packet[TCP].sport
+        dst_ip = packet[IP].dst
+        dst_port = packet[TCP].dport
+        insert_response(src_ip,src_port,dst_ip,dst_port,status)
         print(f"\n{RED}[+] {resnum} {ip}:{port} Response: {server} {version} -- {status}")
         print(f"\n{RED}   {fields}")
 
