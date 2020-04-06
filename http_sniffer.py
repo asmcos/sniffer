@@ -1,7 +1,7 @@
 from scapy.all import *
 from scapy.layers.http import HTTPRequest ,HTTPResponse# import HTTP packet
 from colorama import init, Fore
-
+from db_orm import insert_request 
 # initialize colorama
 init()
 
@@ -42,6 +42,14 @@ def process_packet(packet):
         method = packet[HTTPRequest].Method.decode()
         fields = packet[HTTPRequest].fields
         reqnum += 1
+        host = packet[HTTPRequest].Host.decode()
+        request_uri = packet[HTTPRequest].Path.decode()
+        src_ip = packet[IP].src
+        src_port = packet[TCP].sport
+        dst_ip = packet[IP].dst
+        dst_port = packet[TCP].dport
+        first_line = method + " " + url
+        insert_request(first_line,host,request_uri,src_ip,src_port,dst_ip,dst_port)
         print(f"\n{GREEN}[+] {reqnum} {ip}:{port} Requested {url} with {method}{RESET}")
         print(f"\n{GREEN}   {fields}")
         if show_raw and packet.haslayer(Raw) and method == "POST":
