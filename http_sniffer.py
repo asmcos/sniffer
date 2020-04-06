@@ -40,8 +40,10 @@ def process_packet(packet):
         port = packet[TCP].sport
         # get the request method
         method = packet[HTTPRequest].Method.decode()
+        fields = packet[HTTPRequest].fields
         reqnum += 1
         print(f"\n{GREEN}[+] {reqnum} {ip}:{port} Requested {url} with {method}{RESET}")
+        print(f"\n{GREEN}   {fields}")
         if show_raw and packet.haslayer(Raw) and method == "POST":
             # if show_raw flag is enabled, has raw data, and the requested method is "POST"
             # then show raw
@@ -54,8 +56,10 @@ def process_packet(packet):
         status = packet[HTTPResponse].Status_Code.decode()
         ip = packet[IP].dst
         port = packet[TCP].dport
+        fields = packet[HTTPResponse].fields
         resnum += 1
         print(f"\n{RED}[+] {resnum} {ip}:{port} Response: {server} {version} -- {status}")
+        print(f"\n{RED}   {fields}")
 
 if __name__ == "__main__":
     import argparse
