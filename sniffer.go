@@ -46,6 +46,18 @@ func Usage(){
 }
 
 
+func isRequest(firstLine string)bool{
+    arr := strings.Split(firstLine, " ")
+
+    switch strings.TrimSpace(arr[0]) {
+    case "GET", "HEAD", "POST", "PUT", "DELETE", "TRACE", "CONNECT":
+        return true
+    default:
+        return false
+    }
+
+}
+
 func  isHttp(data []byte) bool{
     buf := bytes.NewBuffer(data)
     reader := bufio.NewReader(buf)
@@ -53,17 +65,13 @@ func  isHttp(data []byte) bool{
 
     firstLine, _ := tp.ReadLine()
 
-	if (strings.HasPrefix(strings.TrimSpace(firstLine), "GET")){
-		log.Println(string(colorPurple),firstLine,
-		strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),
-		strings.HasPrefix(strings.TrimSpace(firstLine), "GET"),match_http)
+	if (isRequest(firstLine)){
+		log.Println(string(colorPurple),firstLine,match_http)
 		match_http += 1
 	}
 
 	if (strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")){
-		log.Println(string(colorRed),firstLine,
-		strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),
-		strings.HasPrefix(strings.TrimSpace(firstLine), "GET"),match_http)
+		log.Println(string(colorRed),firstLine,match_http)
 		match_http -= 1
 	}
 
