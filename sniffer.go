@@ -15,7 +15,10 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 
-
+	"bytes"
+	"bufio"
+	"net/textproto"
+	"strings"
 )
 
 var iface = flag.String("i", "lo0", "Interface to get packets from")
@@ -34,6 +37,7 @@ var    colorPurple = "\033[35m"
 var    colorCyan = "\033[36m"
 var    colorWhite = "\033[37m"
 
+var  match_http = 0
 
 func Usage(){
 
@@ -42,6 +46,30 @@ func Usage(){
 }
 
 
+func  isHttp(data []byte) bool{
+    buf := bytes.NewBuffer(data)
+    reader := bufio.NewReader(buf)
+    tp := textproto.NewReader(reader)
+
+    firstLine, _ := tp.ReadLine()
+
+	if (strings.HasPrefix(strings.TrimSpace(firstLine), "GET")){
+		log.Println(string(colorPurple),firstLine,
+		strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),
+		strings.HasPrefix(strings.TrimSpace(firstLine), "GET"),match_http)
+		match_http += 1
+	}
+
+	if (strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")){
+		log.Println(string(colorRed),firstLine,
+		strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),
+		strings.HasPrefix(strings.TrimSpace(firstLine), "GET"),match_http)
+		match_http -= 1
+	}
+
+
+	return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")||strings.HasPrefix(strings.TrimSpace(firstLine), "GET")
+}
 
 
 func main() {
@@ -97,13 +125,13 @@ func main() {
 			ether := packet.LinkLayer().(*layers.Ethernet)
 			ip := packet.NetworkLayer().(*layers.IPv4)
 			tcp := packet.TransportLayer().(*layers.TCP)
-			if *logAllPackets {
-				log.Printf("%s %#v",string(colorYellow),tcp)
-				log.Printf("%s %s",colorPurple,tcp.Payload)
-				log.Printf("%s ",string(colorWhite))
+			http := isHttp(tcp.Payload)
+			if *logAllPackets && http {
+				//log.Printf("%s %#v",string(colorYellow),tcp)
+				//log.Printf("%s %s",colorPurple,tcp.Payload)
 				log.Printf("%s -> %s ",ether.SrcMAC ,ether.DstMAC)
 				log.Printf("%s:%s -> %s:%s ",ip.SrcIP,tcp.SrcPort ,ip.DstIP,tcp.DstPort)
-				log.Printf("%sLength %d",colorBlue,packet.Metadata().CaptureInfo.Length)
+				log.Printf("Length %d",packet.Metadata().CaptureInfo.Length)
 				log.Print(packet.NetworkLayer().NetworkFlow(), packet.Metadata().Timestamp)
 			}
 		}
