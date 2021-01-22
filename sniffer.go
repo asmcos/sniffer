@@ -10,12 +10,17 @@ import (
 
 	"flag"
 	"log"
+	"time"
+	"fmt"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	"github.com/google/gopacket/tcpassembly/tcpreader"
+	"github.com/google/gopacket/tcpassembly"
 
 	"bytes"
+	"io"
 	"bufio"
 	"net/textproto"
 	"strings"
@@ -66,18 +71,60 @@ func  isHttp(data []byte) bool{
     firstLine, _ := tp.ReadLine()
 
 	if (isRequest(firstLine)){
-		log.Println(string(colorPurple),firstLine,match_http)
+		fmt.Println(string(colorPurple),firstLine,match_http)
 		match_http += 1
 	}
-
+/*
 	if (strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")){
 		log.Println(string(colorRed),firstLine,match_http)
 		match_http -= 1
 	}
 
 
-	return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")||strings.HasPrefix(strings.TrimSpace(firstLine), "GET")
+	return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")||isRequest(firstLine)
+*/
+	return isRequest(firstLine)
 }
+
+/*************************/
+// httpStreamFactory implements tcpassembly.StreamFactory
+type httpStreamFactory struct{}
+
+// httpStream will handle the actual decoding of http requests.
+type httpStream struct {
+	net, transport gopacket.Flow
+	r              tcpreader.ReaderStream
+}
+
+func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
+	hstream := &httpStream{
+		net:       net,
+		transport: transport,
+		r:         tcpreader.NewReaderStream(),
+	}
+	go hstream.run() // Important... we must guarantee that data from the reader stream is read.
+
+	// ReaderStream implements tcpassembly.Stream, so we can return a pointer to it.
+	return &hstream.r
+}
+
+func (h *httpStream) run() {
+	buf := bufio.NewReader(&h.r)
+	length := 0
+	for {
+		_,err := buf.ReadByte()
+		if err == io.EOF {
+			// We must read until we see an EOF... very important!
+			//log.Println(string(colorYellow),"Received request from stream", h.net, h.transport, ":", "with", length, "bytes ")
+			return
+		}
+		length ++
+	}
+}
+
+
+
+/*************************/
 
 
 func main() {
@@ -110,10 +157,13 @@ func main() {
 	// Read in packets, pass to assembler.
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	packets := packetSource.Packets()
-	//ticker := time.Tick(time.Minute)
+	ticker := time.Tick(time.Minute)
 
 
-
+		// Set up assembly
+	streamFactory := &httpStreamFactory{}
+	streamPool := tcpassembly.NewStreamPool(streamFactory)
+	assembler := tcpassembly.NewAssembler(streamPool)
 
 
 	for {
@@ -130,18 +180,22 @@ func main() {
             }
 
 
-			ether := packet.LinkLayer().(*layers.Ethernet)
+			//ether := packet.LinkLayer().(*layers.Ethernet)
 			ip := packet.NetworkLayer().(*layers.IPv4)
 			tcp := packet.TransportLayer().(*layers.TCP)
 			http := isHttp(tcp.Payload)
 			if *logAllPackets && http {
 				//log.Printf("%s %#v",string(colorYellow),tcp)
 				//log.Printf("%s %s",colorPurple,tcp.Payload)
-				log.Printf("%s -> %s ",ether.SrcMAC ,ether.DstMAC)
-				log.Printf("%s:%s -> %s:%s ",ip.SrcIP,tcp.SrcPort ,ip.DstIP,tcp.DstPort)
-				log.Printf("Length %d",packet.Metadata().CaptureInfo.Length)
-				log.Print(packet.NetworkLayer().NetworkFlow(), packet.Metadata().Timestamp)
+				//log.Printf("%s -> %s ",ether.SrcMAC ,ether.DstMAC)
+				fmt.Printf("%s:%s -> %s:%s ",ip.SrcIP,tcp.SrcPort ,ip.DstIP,tcp.DstPort)
+				//log.Printf("Length %d",packet.Metadata().CaptureInfo.Length)
+				//log.Print(packet.NetworkLayer().NetworkFlow(), packet.Metadata().Timestamp)
 			}
+			assembler.AssembleWithTimestamp(packet.NetworkLayer().NetworkFlow(), tcp, packet.Metadata().Timestamp)
+		case <-ticker:
+			// Every minute, flush connections that haven't seen activity in the past 2 minutes.
+			assembler.FlushOlderThan(time.Now().Add(time.Minute * -2))
 		}
 	}
 
