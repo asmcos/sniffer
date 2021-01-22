@@ -63,7 +63,7 @@ func isRequest(firstLine string)bool{
 
 }
 
-func  isHttp(data []byte) bool{
+func  isHttp(data []byte) (bool,string){
     buf := bytes.NewBuffer(data)
     reader := bufio.NewReader(buf)
     tp := textproto.NewReader(reader)
@@ -71,7 +71,7 @@ func  isHttp(data []byte) bool{
     firstLine, _ := tp.ReadLine()
 
 	if (isRequest(firstLine)){
-		fmt.Println(string(colorPurple),firstLine,match_http)
+		//fmt.Println(string(colorPurple),firstLine,match_http)
 		match_http += 1
 	}
 /*
@@ -83,7 +83,7 @@ func  isHttp(data []byte) bool{
 
 	return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")||isRequest(firstLine)
 */
-	return isRequest(firstLine)
+	return isRequest(firstLine),firstLine
 }
 
 /*************************/
@@ -183,12 +183,12 @@ func main() {
 			//ether := packet.LinkLayer().(*layers.Ethernet)
 			ip := packet.NetworkLayer().(*layers.IPv4)
 			tcp := packet.TransportLayer().(*layers.TCP)
-			http := isHttp(tcp.Payload)
+			http ,firstline:= isHttp(tcp.Payload)
 			if *logAllPackets && http {
 				//log.Printf("%s %#v",string(colorYellow),tcp)
 				//log.Printf("%s %s",colorPurple,tcp.Payload)
 				//log.Printf("%s -> %s ",ether.SrcMAC ,ether.DstMAC)
-				fmt.Printf("%s:%s -> %s:%s ",ip.SrcIP,tcp.SrcPort ,ip.DstIP,tcp.DstPort)
+				fmt.Printf("%s %s:%s -> %s:%s %s\n",packet.Metadata().Timestamp,ip.SrcIP,tcp.SrcPort ,ip.DstIP,tcp.DstPort,firstline)
 				//log.Printf("Length %d",packet.Metadata().CaptureInfo.Length)
 				//log.Print(packet.NetworkLayer().NetworkFlow(), packet.Metadata().Timestamp)
 			}
