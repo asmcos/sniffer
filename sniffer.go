@@ -179,7 +179,10 @@ func main() {
                 continue
             }
 
-
+			if (packet.NetworkLayer().LayerType() != layers.LayerTypeIPv4) {
+				// skip ipv6
+				continue
+			}
 			//ether := packet.LinkLayer().(*layers.Ethernet)
 			ip := packet.NetworkLayer().(*layers.IPv4)
 			tcp := packet.TransportLayer().(*layers.TCP)
