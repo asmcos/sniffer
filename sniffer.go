@@ -16,8 +16,6 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
-	"github.com/google/gopacket/tcpassembly/tcpreader"
-	"github.com/google/gopacket/tcpassembly"
 
 	"bytes"
 	"io"
@@ -51,6 +49,7 @@ func Usage(){
 }
 
 
+
 func isRequest(firstLine string)bool{
     arr := strings.Split(firstLine, " ")
 
@@ -74,16 +73,13 @@ func  isHttp(data []byte) (bool,string){
 		//fmt.Println(string(colorPurple),firstLine,match_http)
 		match_http += 1
 	}
-/*
+
 	if (strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")){
-		log.Println(string(colorRed),firstLine,match_http)
+		//log.Println(string(colorRed),firstLine,match_http)
 		match_http -= 1
 	}
 
-
-	return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")||isRequest(firstLine)
-*/
-	return isRequest(firstLine),firstLine
+	return isRequest(firstLine)||strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),firstLine
 }
 
 /*************************/
@@ -93,18 +89,16 @@ type httpStreamFactory struct{}
 // httpStream will handle the actual decoding of http requests.
 type httpStream struct {
 	net, transport gopacket.Flow
-	r              tcpreader.ReaderStream
+	r              ReaderBytes
 }
 
-func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
+func (h *httpStreamFactory) New(net, transport gopacket.Flow) Stream {
 	hstream := &httpStream{
 		net:       net,
 		transport: transport,
-		r:         tcpreader.NewReaderStream(),
+		r:      NewReaderBytes(),
 	}
-	go hstream.run() // Important... we must guarantee that data from the reader stream is read.
-
-	// ReaderStream implements tcpassembly.Stream, so we can return a pointer to it.
+	go hstream.run()
 	return &hstream.r
 }
 
@@ -121,7 +115,6 @@ func (h *httpStream) run() {
 		length ++
 	}
 }
-
 
 
 /*************************/
@@ -162,8 +155,8 @@ func main() {
 
 		// Set up assembly
 	streamFactory := &httpStreamFactory{}
-	streamPool := tcpassembly.NewStreamPool(streamFactory)
-	assembler := tcpassembly.NewAssembler(streamPool)
+	streamPool := NewStreamPool(streamFactory)
+	assembler :=  NewAssembler(streamPool)
 
 
 	for {
@@ -194,6 +187,9 @@ func main() {
 				fmt.Printf("%s %s:%s -> %s:%s %s\n",packet.Metadata().Timestamp,ip.SrcIP,tcp.SrcPort ,ip.DstIP,tcp.DstPort,firstline)
 				//log.Printf("Length %d",packet.Metadata().CaptureInfo.Length)
 				//log.Print(packet.NetworkLayer().NetworkFlow(), packet.Metadata().Timestamp)
+			}
+			if tcp.SYN||tcp.FIN {
+				log.Println(string(colorYellow),tcp.SYN,tcp.FIN,string(colorReset))
 			}
 			assembler.AssembleWithTimestamp(packet.NetworkLayer().NetworkFlow(), tcp, packet.Metadata().Timestamp)
 		case <-ticker:
