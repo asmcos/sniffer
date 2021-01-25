@@ -10,18 +10,18 @@ import (
 
 	"flag"
 	"log"
-	"time"
+	_"time"
 	"fmt"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 
-	"bytes"
-	"io"
-	"bufio"
-	"net/textproto"
-	"strings"
+	_"bytes"
+	_"io"
+	_"bufio"
+	_"net/textproto"
+	_"strings"
 )
 
 var iface = flag.String("i", "lo0", "Interface to get packets from")
@@ -40,82 +40,13 @@ var    colorPurple = "\033[35m"
 var    colorCyan = "\033[36m"
 var    colorWhite = "\033[37m"
 
-var  match_http = 0
+var  conn_count = 0
 
 func Usage(){
 
     flag.PrintDefaults()
 
 }
-
-
-
-func isRequest(firstLine string)bool{
-    arr := strings.Split(firstLine, " ")
-
-    switch strings.TrimSpace(arr[0]) {
-    case "GET", "HEAD", "POST", "PUT", "DELETE", "TRACE", "CONNECT":
-        return true
-    default:
-        return false
-    }
-
-}
-
-func  isHttp(data []byte) (bool,string){
-    buf := bytes.NewBuffer(data)
-    reader := bufio.NewReader(buf)
-    tp := textproto.NewReader(reader)
-
-    firstLine, _ := tp.ReadLine()
-
-	if (isRequest(firstLine)){
-		//fmt.Println(string(colorPurple),firstLine,match_http)
-		match_http += 1
-	}
-
-	if (strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/")){
-		//log.Println(string(colorRed),firstLine,match_http)
-		match_http -= 1
-	}
-
-	return isRequest(firstLine)||strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),firstLine
-}
-
-/*************************/
-// httpStreamFactory implements tcpassembly.StreamFactory
-type httpStreamFactory struct{}
-
-// httpStream will handle the actual decoding of http requests.
-type httpStream struct {
-	net, transport gopacket.Flow
-	r              ReaderBytes
-}
-
-func (h *httpStreamFactory) New(net, transport gopacket.Flow) Stream {
-	hstream := &httpStream{
-		net:       net,
-		transport: transport,
-		r:      NewReaderBytes(),
-	}
-	go hstream.run()
-	return &hstream.r
-}
-
-func (h *httpStream) run() {
-	buf := bufio.NewReader(&h.r)
-	length := 0
-	for {
-		_,err := buf.ReadByte()
-		if err == io.EOF {
-			// We must read until we see an EOF... very important!
-			//log.Println(string(colorYellow),"Received request from stream", h.net, h.transport, ":", "with", length, "bytes ")
-			return
-		}
-		length ++
-	}
-}
-
 
 /*************************/
 
@@ -150,13 +81,11 @@ func main() {
 	// Read in packets, pass to assembler.
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	packets := packetSource.Packets()
-	ticker := time.Tick(time.Minute)
 
 
-		// Set up assembly
-	streamFactory := &httpStreamFactory{}
-	streamPool := NewStreamPool(streamFactory)
-	assembler :=  NewAssembler(streamPool)
+	layers.RegisterTCPPortLayerType(layers.TCPPort(80), LayerTypeHTTP)
+
+	//	解析
 
 
 	for {
@@ -179,22 +108,27 @@ func main() {
 			//ether := packet.LinkLayer().(*layers.Ethernet)
 			ip := packet.NetworkLayer().(*layers.IPv4)
 			tcp := packet.TransportLayer().(*layers.TCP)
-			http ,firstline:= isHttp(tcp.Payload)
-			if *logAllPackets && http {
+
+
+			//http := packet.ApplicationLayer().(*HTTP)
+			log.Println("AppLayer",packet.ApplicationLayer())
+			if *logAllPackets {
 				//log.Printf("%s %#v",string(colorYellow),tcp)
 				//log.Printf("%s %s",colorPurple,tcp.Payload)
 				//log.Printf("%s -> %s ",ether.SrcMAC ,ether.DstMAC)
-				fmt.Printf("%s %s:%s -> %s:%s %s\n",packet.Metadata().Timestamp,ip.SrcIP,tcp.SrcPort ,ip.DstIP,tcp.DstPort,firstline)
+				fmt.Printf("%s %s:%s -> %s:%s \n",packet.Metadata().Timestamp,ip.SrcIP,tcp.SrcPort ,ip.DstIP,tcp.DstPort )
 				//log.Printf("Length %d",packet.Metadata().CaptureInfo.Length)
 				//log.Print(packet.NetworkLayer().NetworkFlow(), packet.Metadata().Timestamp)
 			}
-			if tcp.SYN||tcp.FIN {
-				log.Println(string(colorYellow),tcp.SYN,tcp.FIN,string(colorReset))
+			if tcp.SYN {
+				conn_count ++
+				log.Println(string(colorYellow),tcp.SYN,tcp.FIN,conn_count,string(colorReset))
 			}
-			assembler.AssembleWithTimestamp(packet.NetworkLayer().NetworkFlow(), tcp, packet.Metadata().Timestamp)
-		case <-ticker:
-			// Every minute, flush connections that haven't seen activity in the past 2 minutes.
-			assembler.FlushOlderThan(time.Now().Add(time.Minute * -2))
+			if tcp.FIN {
+				conn_count --
+				log.Println(string(colorRed),tcp.SYN,tcp.FIN,conn_count,string(colorReset))
+			}
+
 		}
 	}
 
