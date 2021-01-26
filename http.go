@@ -37,122 +37,6 @@ var LayerTypeHTTP = gopacket.RegisterLayerType(1000, gopacket.LayerTypeMetadata{
 func (h *HTTP) LayerType() gopacket.LayerType { return LayerTypeHTTP }
 
 
-
-
-var GENERAL_HEADERS []string = []string{
-    "Cache-Control",
-    "Connection",
-    "Permanent",
-    "Content-Length",
-    "Content-MD5",
-    "Content-Type",
-    "Date",
-    "Keep-Alive",
-    "Pragma",
-    "Upgrade",
-    "Via",
-    "Warning"}
-
-
-var COMMON_UNSTANDARD_GENERAL_HEADERS []string=[]string {
-    "X-Request-ID",
-    "X-Correlation-ID"}
-
-var REQUEST_HEADERS[]string = []string{
-    "A-IM",
-    "Accept",
-    "Accept-Charset",
-    "Accept-Encoding",
-    "Accept-Language",
-    "Accept-Datetime",
-    "Access-Control-Request-Method",
-    "Access-Control-Request-Headers",
-    "Authorization",
-    "Cookie",
-    "Expect",
-    "Forwarded",
-    "From",
-    "Host",
-    "HTTP2-Settings",
-    "If-Match",
-    "If-Modified-Since",
-    "If-None-Match",
-    "If-Range",
-    "If-Unmodified-Since",
-    "Max-Forwards",
-    "Origin",
-    "Proxy-Authorization",
-    "Range",
-    "Referer",
-    "TE",
-    "User-Agent"}
-
-var COMMON_UNSTANDARD_REQUEST_HEADERS []string=[]string{
-    "Upgrade-Insecure-Requests",
-    "X-Requested-With",
-    "DNT",
-    "X-Forwarded-For",
-    "X-Forwarded-Host",
-    "X-Forwarded-Proto",
-    "Front-End-Https",
-    "X-Http-Method-Override",
-    "X-ATT-DeviceId",
-    "X-Wap-Profile",
-    "Proxy-Connection",
-    "X-UIDH",
-    "X-Csrf-Token",
-    "Save-Data"}
-
-var RESPONSE_HEADERS []string=[]string{
-    "Access-Control-Allow-Origin",
-    "Access-Control-Allow-Credentials",
-    "Access-Control-Expose-Headers",
-    "Access-Control-Max-Age",
-    "Access-Control-Allow-Methods",
-    "Access-Control-Allow-Headers",
-    "Accept-Patch",
-    "Accept-Ranges",
-    "Age",
-    "Allow",
-    "Alt-Svc",
-    "Content-Disposition",
-    "Content-Encoding",
-    "Content-Language",
-    "Content-Location",
-    "Content-Range",
-    "Delta-Base",
-    "ETag",
-    "Expires",
-    "IM",
-    "Last-Modified",
-    "Link",
-    "Location",
-    "P3P",
-    "Proxy-Authenticate",
-    "Public-Key-Pins",
-    "Retry-After",
-    "Server",
-    "Set-Cookie",
-    "Strict-Transport-Security",
-    "Trailer",
-    "Transfer-Encoding",
-    "Tk",
-    "Vary",
-    "WWW-Authenticate",
-    "X-Frame-Options"}
-
-var COMMON_UNSTANDARD_RESPONSE_HEADERS []string=[]string{
-    "Content-Security-Policy",
-    "X-Content-Security-Policy",
-    "X-WebKit-CSP",
-    "Refresh",
-    "Status",
-    "Timing-Allow-Origin",
-    "X-Content-Duration",
-    "X-Content-Type-Options",
-    "X-Powered-By",
-    "X-UA-Compatible",
-    "X-XSS-Protection"}
 /*****************************************
  request
 *****************************************/
@@ -228,16 +112,18 @@ func (h *HTTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 
 	if (isRequest(firstLine)){
 
-		req,err := readRequest(data)
-		fmt.Println(req,err)
+		req,_ := readRequest(data)
+
+
+		fmt.Println(req,req.Body)
 
 		h.HasHTTPHeader = true
 		return nil
 
 	} else if(isResponse(firstLine)){
 
-		resp,err := readResponse(data)
-		fmt.Println(resp,err)
+		resp,_ := readResponse(data)
+		fmt.Println(resp)
 		h.HasHTTPHeader = true
 		return nil
 	} else {

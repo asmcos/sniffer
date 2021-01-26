@@ -114,8 +114,7 @@ func main() {
 			ip := packet.NetworkLayer().(*layers.IPv4)
 			tcp := packet.TransportLayer().(*layers.TCP)
 
-			log.Println(tcp.NextLayerType())
-
+			/*
 			httplayer := packet.Layer(LayerTypeHTTP)
 
 			if httplayer != nil {
@@ -123,11 +122,8 @@ func main() {
 				content, _ := httplayer.(*HTTP)
 				log.Println(content)
 
-			}
-			/*if packet.ApplicationLayer() != nil {
-				http := packet.ApplicationLayer().(*HTTP)
-				log.Println("AppLayer",packet.ApplicationLayer(),http)
 			}*/
+
 
 			if *logAllPackets {
 				//log.Printf("%s %#v",string(colorYellow),tcp)
@@ -136,14 +132,6 @@ func main() {
 				fmt.Printf("%s %s:%s -> %s:%s \n",packet.Metadata().Timestamp,ip.SrcIP,tcp.SrcPort ,ip.DstIP,tcp.DstPort )
 				//log.Printf("Length %d",packet.Metadata().CaptureInfo.Length)
 				//log.Print(packet.NetworkLayer().NetworkFlow(), packet.Metadata().Timestamp)
-			}
-			if tcp.SYN {
-				conn_count ++
-				log.Println(string(colorYellow),tcp.SYN,tcp.FIN,conn_count,string(colorReset))
-			}
-			if tcp.FIN {
-				conn_count --
-				log.Println(string(colorRed),tcp.SYN,tcp.FIN,conn_count,string(colorReset))
 			}
 
 		}
