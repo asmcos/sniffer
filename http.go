@@ -121,7 +121,7 @@ func (h *HTTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		req,_ := readRequest(data)
 
 
-		fmt.Println(req,req.Body)
+		fmt.Printf("%#v",req)
 
 		h.HasHTTPHeader = true
 		return nil
@@ -129,7 +129,7 @@ func (h *HTTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	} else if(isResponse(firstLine)){
 
 		resp,_ := readResponse(data)
-		fmt.Println(resp)
+		fmt.Printf("%#v",resp)
 		h.HasHTTPHeader = true
 		return nil
 	} else {
