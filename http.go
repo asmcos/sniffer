@@ -1,4 +1,4 @@
-/* http: layers for gopacket
+/* http: layers for gopacket,http layer only support request header And response header
  * Author: asmcos
  * Date: 2021-01-25
  */
@@ -16,7 +16,12 @@ import (
 	"strings"
 	"bufio"
 	"net/textproto"
+	"net/http"
+	_"net/url"
+	_"sync"
+	_"io"
 )
+
 
 type HTTP struct {
 	layers.BaseLayer
@@ -33,8 +38,8 @@ func (h *HTTP) LayerType() gopacket.LayerType { return LayerTypeHTTP }
 
 
 
-/*
-var GENERAL_HEADERS = [
+
+var GENERAL_HEADERS []string = []string{
     "Cache-Control",
     "Connection",
     "Permanent",
@@ -46,15 +51,14 @@ var GENERAL_HEADERS = [
     "Pragma",
     "Upgrade",
     "Via",
-    "Warning"
-]
+    "Warning"}
 
-var COMMON_UNSTANDARD_GENERAL_HEADERS = [
+
+var COMMON_UNSTANDARD_GENERAL_HEADERS []string=[]string {
     "X-Request-ID",
-    "X-Correlation-ID"
-]
+    "X-Correlation-ID"}
 
-var REQUEST_HEADERS = [
+var REQUEST_HEADERS[]string = []string{
     "A-IM",
     "Accept",
     "Accept-Charset",
@@ -81,10 +85,9 @@ var REQUEST_HEADERS = [
     "Range",
     "Referer",
     "TE",
-    "User-Agent"
-]
+    "User-Agent"}
 
-var COMMON_UNSTANDARD_REQUEST_HEADERS = [
+var COMMON_UNSTANDARD_REQUEST_HEADERS []string=[]string{
     "Upgrade-Insecure-Requests",
     "X-Requested-With",
     "DNT",
@@ -98,10 +101,9 @@ var COMMON_UNSTANDARD_REQUEST_HEADERS = [
     "Proxy-Connection",
     "X-UIDH",
     "X-Csrf-Token",
-    "Save-Data",
-]
+    "Save-Data"}
 
-var RESPONSE_HEADERS = [
+var RESPONSE_HEADERS []string=[]string{
     "Access-Control-Allow-Origin",
     "Access-Control-Allow-Credentials",
     "Access-Control-Expose-Headers",
@@ -137,10 +139,9 @@ var RESPONSE_HEADERS = [
     "Tk",
     "Vary",
     "WWW-Authenticate",
-    "X-Frame-Options",
-]
+    "X-Frame-Options"}
 
-var COMMON_UNSTANDARD_RESPONSE_HEADERS = [
+var COMMON_UNSTANDARD_RESPONSE_HEADERS []string=[]string{
     "Content-Security-Policy",
     "X-Content-Security-Policy",
     "X-WebKit-CSP",
@@ -151,9 +152,36 @@ var COMMON_UNSTANDARD_RESPONSE_HEADERS = [
     "X-Content-Type-Options",
     "X-Powered-By",
     "X-UA-Compatible",
-    "X-XSS-Protection",
-]
-*/
+    "X-XSS-Protection"}
+/*****************************************
+ request
+*****************************************/
+
+func readRequest(data []byte ) (req *http.Request, err error) {
+
+	buf := bytes.NewBuffer(data)
+    b := bufio.NewReader(buf)
+
+	req, err = http.ReadRequest(b)
+
+	return req, nil
+}
+
+func readResponse(data []byte ) (resp *http.Response, err error) {
+
+	buf := bytes.NewBuffer(data)
+    b := bufio.NewReader(buf)
+
+	resp, err = http.ReadResponse(b,new(http.Request))
+
+	return resp, nil
+}
+
+
+
+/*****************************************
+ request  end
+*****************************************/
 func isRequest(firstLine string) bool{
     arr := strings.Split(firstLine, " ")
 
@@ -174,6 +202,7 @@ func  isResponse(firstLine string)  bool{
 	return false
 }
 
+//http body
 func (h *HTTP) Payload() []byte {
 
 	return nil
@@ -199,12 +228,16 @@ func (h *HTTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 
 	if (isRequest(firstLine)){
 
+		req,err := readRequest(data)
+		fmt.Println(req,err)
 
 		h.HasHTTPHeader = true
 		return nil
 
 	} else if(isResponse(firstLine)){
 
+		resp,err := readResponse(data)
+		fmt.Println(resp,err)
 		h.HasHTTPHeader = true
 		return nil
 	} else {
@@ -216,8 +249,6 @@ func (h *HTTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 func decodeHTTP(data []byte, p gopacket.PacketBuilder) error {
 	h := new(HTTP)
 
-	fmt.Println("decodeHTTP")
-
 	err := h.DecodeFromBytes(data, p)
 
 	p.AddLayer(h)
@@ -228,5 +259,5 @@ func decodeHTTP(data []byte, p gopacket.PacketBuilder) error {
 		return err
 	}
 
-	return nil
+	return p.NextDecoder(gopacket.LayerTypePayload)
 }

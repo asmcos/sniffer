@@ -78,12 +78,17 @@ func main() {
 
 
 	log.Println("Reading in packets")
+
 	// Read in packets, pass to assembler.
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+
+	//set the Options for http layer, register 80 port to tcp layer
+	packetSource.DecodeOptions = gopacket.DecodeStreamsAsDatagrams
+	layers.RegisterTCPPortLayerType(layers.TCPPort(80), LayerTypeHTTP)
+
 	packets := packetSource.Packets()
 
 
-	layers.RegisterTCPPortLayerType(layers.TCPPort(80), LayerTypeHTTP)
 
 	//	解析
 
@@ -109,9 +114,21 @@ func main() {
 			ip := packet.NetworkLayer().(*layers.IPv4)
 			tcp := packet.TransportLayer().(*layers.TCP)
 
+			log.Println(tcp.NextLayerType())
 
-			//http := packet.ApplicationLayer().(*HTTP)
-			log.Println("AppLayer",packet.ApplicationLayer())
+			httplayer := packet.Layer(LayerTypeHTTP)
+
+			if httplayer != nil {
+
+				content, _ := httplayer.(*HTTP)
+				log.Println(content)
+
+			}
+			/*if packet.ApplicationLayer() != nil {
+				http := packet.ApplicationLayer().(*HTTP)
+				log.Println("AppLayer",packet.ApplicationLayer(),http)
+			}*/
+
 			if *logAllPackets {
 				//log.Printf("%s %#v",string(colorYellow),tcp)
 				//log.Printf("%s %s",colorPurple,tcp.Payload)
