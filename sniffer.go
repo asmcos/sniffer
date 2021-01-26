@@ -17,6 +17,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 
+	"runtime"
 	_"bytes"
 	_"io"
 	_"bufio"
@@ -111,6 +112,7 @@ func main() {
 				continue
 			}
 			//ether := packet.LinkLayer().(*layers.Ethernet)
+
 			ip := packet.NetworkLayer().(*layers.IPv4)
 			tcp := packet.TransportLayer().(*layers.TCP)
 
@@ -126,13 +128,14 @@ func main() {
 
 
 			if *logAllPackets {
-				//log.Printf("%s %#v",string(colorYellow),tcp)
-				//log.Printf("%s %s",colorPurple,tcp.Payload)
 				//log.Printf("%s -> %s ",ether.SrcMAC ,ether.DstMAC)
 				fmt.Printf("%s %s:%s -> %s:%s \n",packet.Metadata().Timestamp,ip.SrcIP,tcp.SrcPort ,ip.DstIP,tcp.DstPort )
-				//log.Printf("Length %d",packet.Metadata().CaptureInfo.Length)
 				//log.Print(packet.NetworkLayer().NetworkFlow(), packet.Metadata().Timestamp)
 			}
+
+			numGoroutines := runtime.NumGoroutine()
+			fmt.Println("number goroutine = ", numGoroutines)
+
 
 		}
 	}

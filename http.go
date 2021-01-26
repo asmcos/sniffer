@@ -41,12 +41,18 @@ func (h *HTTP) LayerType() gopacket.LayerType { return LayerTypeHTTP }
  request
 *****************************************/
 
+const (
+	defaultMaxMemory = 32 << 20 // 32 MB
+)
+
 func readRequest(data []byte ) (req *http.Request, err error) {
 
 	buf := bytes.NewBuffer(data)
     b := bufio.NewReader(buf)
 
 	req, err = http.ReadRequest(b)
+
+	req.ParseMultipartForm(defaultMaxMemory)
 
 	return req, nil
 }
