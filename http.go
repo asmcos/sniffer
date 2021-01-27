@@ -52,6 +52,8 @@ func readRequest(data []byte ) (req *http.Request, err error) {
 
 	req, err = http.ReadRequest(b)
 
+	fmt.Printf("Body:%#v\n",req.Body)
+
 	req.ParseMultipartForm(defaultMaxMemory)
 
 	return req, nil
