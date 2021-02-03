@@ -166,13 +166,12 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 		}
 		isResp,firstLine:= isResponse(p)
 		if(isResp){
+			log.Println(firstLine)
 			buf := bytes.NewBuffer(p)
 			b := bufio.NewReader(buf)
 			res, err := http.ReadResponse(b, nil)
 			if err == nil{
 				log.Println(res)
-			} else {
-				log.Println(firstLine)
 			}
 		}
 
