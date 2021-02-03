@@ -38,16 +38,6 @@ import (
 	"github.com/google/gopacket/reassembly"
 )
 
-var    colorReset = "\033[0m"
-
-var    colorRed = "\033[31m"
-var    colorGreen = "\033[32m"
-var    colorYellow = "\033[33m"
-var    colorBlue = "\033[34m"
-var    colorPurple = "\033[35m"
-var    colorCyan = "\033[36m"
-var    colorWhite = "\033[37m"
-
 var maxcount = flag.Int("c", -1, "Only grab this many packets, then exit")
 var decoder = flag.String("decoder", "", "Name of the decoder to use (default: guess from capture)")
 var statsevery = flag.Int("stats", 1000, "Output statistics every N packets")
@@ -172,9 +162,14 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 
 		l,err := h.Read(p)
 		if( l>8 ){
-			isResp,firstLine := isResponse(p)
+			isResp,_ := isResponse(p)
 			if(isResp){
-				log.Println(firstLine)
+				buf := bytes.NewBuffer(p)
+				b := bufio.NewReader(buf)
+				res, err := http.ReadResponse(b, nil)
+				if err == nil{
+					log.Println(res)
+				}
 			}
 		}
 		if (err == io.EOF){
@@ -235,16 +230,16 @@ func (hreq * httpRequest) HandleRequest () {
     } else if err != nil {
         Error("HTTP-request", "HTTP Request error: %s (%v,%+v)\n", err, err, err)
 
-    }
-    body, err := ioutil.ReadAll(req.Body)
-    if err != nil {
-         Error("HTTP-request-body", "Got body err: %s\n", err)
-    }
-    s := len(body)
-    req.Body.Close()
-    log.Printf("HTTP  Request: %s %s (body:%d)\n", req.Method, req.URL, s)
+    } else {
+    	body, err := ioutil.ReadAll(req.Body)
+    	if err != nil {
+        	 Error("HTTP-request-body", "Got body err: %s\n", err)
+    	}
+    	s := len(body)
+    	req.Body.Close()
+    	log.Printf("HTTP  Request: %s %s (body:%d)\n", req.Method, req.URL, s)
+	}
 	log.Println(req)
-
 	//wait read all packet
 	for{
 		_,err = hreq.Read(p)
