@@ -143,7 +143,7 @@ func Debug(s string, a ...interface{}) {
 	}
 }
 
-
+//server to client
 func  isResponse(data []byte) (bool,string) {
     buf := bytes.NewBuffer(data)
     reader := bufio.NewReader(buf)
@@ -161,6 +161,9 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 	for ;;{
 
 		l,err := h.Read(p)
+		if (err == io.EOF){
+			return
+		}
 		if( l>8 ){
 			isResp,_ := isResponse(p)
 			if(isResp){
@@ -171,9 +174,6 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 					log.Println(res)
 				}
 			}
-		}
-		if (err == io.EOF){
-			return
 		}
 	}
 
@@ -428,7 +428,7 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 		transport:  transport,
 		isDNS:      tcp.SrcPort == 53 || tcp.DstPort == 53,
 		isHTTP:     (tcp.SrcPort == 80 || tcp.DstPort == 80) && factory.doHTTP,
-		reversed:   tcp.SrcPort == 80,
+		reversed:   tcp.DstPort == 80,
 		tcpstate:   reassembly.NewTCPSimpleFSM(fsmOptions),
 		ident:      fmt.Sprintf("%s:%s", net, transport),
 		optchecker: reassembly.NewTCPOptionCheck(),
@@ -607,7 +607,7 @@ func (t *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 			if *hexdump {
 				Debug("Feeding http with:\n%s", hex.Dump(data))
 			}
-			if dir == reassembly.TCPDirClientToServer && !t.reversed {
+			if dir == reassembly.TCPDirClientToServer && t.reversed {
 				t.client.bytes <- data
 			} else {
 				t.server.bytes <- data
