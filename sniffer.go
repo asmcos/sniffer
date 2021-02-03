@@ -160,21 +160,22 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 
 	for ;;{
 
-		l,err := h.Read(p)
+		_,err := h.Read(p)
 		if (err == io.EOF){
 			return
 		}
-		if( l>8 ){
-			isResp,_ := isResponse(p)
-			if(isResp){
-				buf := bytes.NewBuffer(p)
-				b := bufio.NewReader(buf)
-				res, err := http.ReadResponse(b, nil)
-				if err == nil{
-					log.Println(res)
-				}
+		isResp,firstLine:= isResponse(p)
+		if(isResp){
+			buf := bytes.NewBuffer(p)
+			b := bufio.NewReader(buf)
+			res, err := http.ReadResponse(b, nil)
+			if err == nil{
+				log.Println(res)
+			} else {
+				log.Println(firstLine)
 			}
 		}
+
 	}
 
 }
