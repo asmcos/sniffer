@@ -404,8 +404,10 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 	if err != nil {
 		// 重复的包，丢弃 drop
         // 调试发现此包为以前序号的包，并且出现过。
+		// mss BUG,server mss通过路由拆解成mss要求的包尺寸，
+		// 因此不能判断包大小大于mss为错包
 		if strings.Contains(fmt.Sprintf("%s",err)," > mss "){
-	
+			//  > mss 包 不丢弃
 		} else {
 
 			Error("OptionChecker", "%v ->%v : Packet rejected by OptionChecker: %s\n",  t.net, t.transport, err)
