@@ -153,6 +153,9 @@ func  isResponse(data []byte) (bool,string) {
     return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),firstLine
 }
 
+var resp_count = 0;
+var req_count = 0;
+
 func (h *httpReader) runServer(wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -166,7 +169,8 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 		}
 		isResp,firstLine:= isResponse(p)
 		if(isResp){
-			log.Println(firstLine)
+			resp_count ++
+			log.Println(firstLine,resp_count)
 			buf := bytes.NewBuffer(p)
 			b := bufio.NewReader(buf)
 			res, err := http.ReadResponse(b, nil)
@@ -201,6 +205,7 @@ type httpRequest struct {
 	data     []byte
 	start    bool
 }
+
 
 func (h *httpRequest) Read(p []byte) (int, error) {
 	ok := true
@@ -269,8 +274,8 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 		if( l > 8 ){
 			isReq,firstLine := isRequest(p)
 			if(isReq){ //start new request
-
-				log.Println(firstLine)
+				req_count ++
+				log.Println(firstLine,req_count)
 
 				if req.start { //如果存在正在处理的request，给request发结束通知，开始处理新的request 
 					close(req.bytes)
