@@ -11,8 +11,8 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"compress/gzip"
-	"encoding/binary"
+	_"compress/gzip"
+	_"encoding/binary"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -20,11 +20,11 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
+	_"net/url"
 	"net/textproto"
 	"os"
 	"os/signal"
-	"path"
+	_"path"
 	"runtime/pprof"
 	"strings"
 	"sync"
@@ -303,118 +303,6 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 }
 
 
-func (h *httpReader) run(wg *sync.WaitGroup) {
-	defer wg.Done()
-	b := bufio.NewReader(h)
-	for true {
-		if h.isClient {
-			req, err := http.ReadRequest(b)
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				break
-			} else if err != nil {
-				Error("HTTP-request", "HTTP/%s Request error: %s (%v,%+v)\n", h.ident, err, err, err)
-				continue
-			}
-			body, err := ioutil.ReadAll(req.Body)
-			s := len(body)
-			if err != nil {
-				Error("HTTP-request-body", "Got body err: %s\n", err)
-			} else if h.hexdump {
-				Info("Body(%d/0x%x)\n%s\n", len(body), len(body), hex.Dump(body))
-			}
-			req.Body.Close()
-			Info("HTTP/%s Request: %s %s (body:%d)\n", h.ident, req.Method, req.URL, s)
-			h.parent.Lock()
-			h.parent.urls = append(h.parent.urls, req.URL.String())
-			h.parent.Unlock()
-		} else {
-			res, err := http.ReadResponse(b, nil)
-			var req string
-			h.parent.Lock()
-			if len(h.parent.urls) == 0 {
-				req = fmt.Sprintf("<no-request-seen>")
-			} else {
-				req, h.parent.urls = h.parent.urls[0], h.parent.urls[1:]
-			}
-			h.parent.Unlock()
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				break
-			} else if err != nil {
-				Error("HTTP-response", "HTTP/%s Response error: %s (%v,%+v)\n", h.ident, err, err, err)
-				continue
-			}
-			body, err := ioutil.ReadAll(res.Body)
-			s := len(body)
-			if err != nil {
-				Error("HTTP-response-body", "HTTP/%s: failed to get body(parsed len:%d): %s\n", h.ident, s, err)
-			}
-			if h.hexdump {
-				Info("Body(%d/0x%x)\n%s\n", len(body), len(body), hex.Dump(body))
-			}
-			res.Body.Close()
-			sym := ","
-			if res.ContentLength > 0 && res.ContentLength != int64(s) {
-				sym = "!="
-			}
-			contentType, ok := res.Header["Content-Type"]
-			if !ok {
-				contentType = []string{http.DetectContentType(body)}
-			}
-			encoding := res.Header["Content-Encoding"]
-			Info("HTTP/%s Response: %s URL:%s (%d%s%d%s) -> %s\n", h.ident, res.Status, req, res.ContentLength, sym, s, contentType, encoding)
-			if (err == nil || *writeincomplete) && *output != "" {
-				base := url.QueryEscape(path.Base(req))
-				if err != nil {
-					base = "incomplete-" + base
-				}
-				base = path.Join(*output, base)
-				if len(base) > 250 {
-					base = base[:250] + "..."
-				}
-				if base == *output {
-					base = path.Join(*output, "noname")
-				}
-				target := base
-				n := 0
-				for true {
-					_, err := os.Stat(target)
-					//if os.IsNotExist(err) != nil {
-					if err != nil {
-						break
-					}
-					target = fmt.Sprintf("%s-%d", base, n)
-					n++
-				}
-				f, err := os.Create(target)
-				if err != nil {
-					Error("HTTP-create", "Cannot create %s: %s\n", target, err)
-					continue
-				}
-				var r io.Reader
-				r = bytes.NewBuffer(body)
-				if len(encoding) > 0 && (encoding[0] == "gzip" || encoding[0] == "deflate") {
-					r, err = gzip.NewReader(r)
-					if err != nil {
-						Error("HTTP-gunzip", "Failed to gzip decode: %s", err)
-					}
-				}
-				if err == nil {
-					w, err := io.Copy(f, r)
-					if _, ok := r.(*gzip.Reader); ok {
-						r.(*gzip.Reader).Close()
-					}
-					f.Close()
-					if err != nil {
-						Error("HTTP-save", "%s: failed to save %s (l:%d): %s\n", h.ident, target, w, err)
-					} else {
-						Info("%s: Saved %s (l:%d)\n", h.ident, target, w)
-					}
-				}
-			}
-		}
-	}
-}
-
 /*
  * The TCP factory: returns a new Stream
  */
@@ -433,7 +321,7 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 		transport:  transport,
 		isDNS:      tcp.SrcPort == 53 || tcp.DstPort == 53,
 		isHTTP:     (tcp.SrcPort == 80 || tcp.DstPort == 80) && factory.doHTTP,
-		reversed:   tcp.DstPort == 80,
+		reversed:   tcp.SrcPort == 80,
 		tcpstate:   reassembly.NewTCPSimpleFSM(fsmOptions),
 		ident:      fmt.Sprintf("%s:%s", net, transport),
 		optchecker: reassembly.NewTCPOptionCheck(),
@@ -514,7 +402,7 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 	if err != nil {
 		// 重复的包，丢弃 drop
         // 调试发现此包为以前序号的包，并且出现过。
-		Error("OptionChecker", "%s: Packet rejected by OptionChecker: %s\n", t.ident, err)
+		Error("OptionChecker", "%v ->%v : Packet rejected by OptionChecker: %s\n",  t.net, t.transport, err)
 		stats.rejectOpt++
 		if !*nooptcheck {
 			return false
@@ -580,39 +468,12 @@ func (t *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 		return
 	}
 	data := sg.Fetch(length)
-	if t.isDNS {
-		dns := &layers.DNS{}
-		var decoded []gopacket.LayerType
-		if len(data) < 2 {
-			if len(data) > 0 {
-				sg.KeepFrom(0)
-			}
-			return
-		}
-		dnsSize := binary.BigEndian.Uint16(data[:2])
-		missing := int(dnsSize) - len(data[2:])
-		Debug("dnsSize: %d, missing: %d\n", dnsSize, missing)
-		if missing > 0 {
-			Info("Missing some bytes: %d\n", missing)
-			sg.KeepFrom(0)
-			return
-		}
-		p := gopacket.NewDecodingLayerParser(layers.LayerTypeDNS, dns)
-		err := p.DecodeLayers(data[2:], &decoded)
-		if err != nil {
-			Error("DNS-parser", "Failed to decode DNS: %v\n", err)
-		} else {
-			Debug("DNS: %s\n", gopacket.LayerDump(dns))
-		}
-		if len(data) > 2+int(dnsSize) {
-			sg.KeepFrom(2 + int(dnsSize))
-		}
-	} else if t.isHTTP {
+    if t.isHTTP {
 		if length > 0 {
 			if *hexdump {
 				Debug("Feeding http with:\n%s", hex.Dump(data))
 			}
-			if dir == reassembly.TCPDirClientToServer && t.reversed {
+			if dir == reassembly.TCPDirClientToServer && !t.reversed {
 				t.client.bytes <- data
 			} else {
 				t.server.bytes <- data
