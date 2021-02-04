@@ -404,7 +404,7 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 	if err != nil {
 		// 重复的包，丢弃 drop
         // 调试发现此包为以前序号的包，并且出现过。
-		if strings.HasPrefix(fmt.Sprintf("%s",err)," > mss "){
+		if strings.Contains(fmt.Sprintf("%s",err)," > mss "){
 	
 		} else {
 
