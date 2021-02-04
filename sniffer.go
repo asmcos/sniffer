@@ -244,7 +244,9 @@ func (hreq * httpRequest) HandleRequest () {
     	req.Body.Close()
     	log.Printf("HTTP  Request: %s %s (body:%d)\n", req.Method, req.URL, s)
 	}
-	log.Println(req)
+	req.MultipartReader()
+	log.Printf("%#v",req)
+	
 	//wait read all packet
 	for{
 		_,err = hreq.Read(p)
@@ -398,18 +400,22 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 		}
 	}
 	// Options //skip mss check
-	if !tcp.SYN {
-		err := t.optchecker.Accept(tcp, ci, dir, nextSeq, start)
-	  if err != nil {
+	err := t.optchecker.Accept(tcp, ci, dir, nextSeq, start)
+	if err != nil {
 		// 重复的包，丢弃 drop
         // 调试发现此包为以前序号的包，并且出现过。
-		Error("OptionChecker", "%v ->%v : Packet rejected by OptionChecker: %s\n",  t.net, t.transport, err)
-		stats.rejectOpt++
-		if !*nooptcheck {
-			return false
+		if strings.HasPrefix(fmt.Sprintf("%s",err)," > mss "){
+	
+		} else {
+
+			Error("OptionChecker", "%v ->%v : Packet rejected by OptionChecker: %s\n",  t.net, t.transport, err)
+			stats.rejectOpt++
+			if !*nooptcheck {
+				return false
+			}
 		}
-	 }
 	}
+	
 
 	// Checksum
 	accept := true
