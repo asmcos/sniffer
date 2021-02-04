@@ -397,9 +397,10 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 			return false
 		}
 	}
-	// Options
-	err := t.optchecker.Accept(tcp, ci, dir, nextSeq, start)
-	if err != nil {
+	// Options //skip mss check
+	if !tcp.SYN {
+		err := t.optchecker.Accept(tcp, ci, dir, nextSeq, start)
+	  if err != nil {
 		// 重复的包，丢弃 drop
         // 调试发现此包为以前序号的包，并且出现过。
 		Error("OptionChecker", "%v ->%v : Packet rejected by OptionChecker: %s\n",  t.net, t.transport, err)
@@ -407,7 +408,9 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 		if !*nooptcheck {
 			return false
 		}
+	 }
 	}
+
 	// Checksum
 	accept := true
 	if *checksum {
