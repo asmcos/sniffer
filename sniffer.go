@@ -180,7 +180,7 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 			b := bufio.NewReader(buf)
 			res, err := http.ReadResponse(b, nil)
 			if err == nil{
-				log.Println(res)
+				log.Printf("%#v",res)
 			}
 		}
 
@@ -249,9 +249,10 @@ func (hreq * httpRequest) HandleRequest () {
 		req.Body.Close()
 		log.Printf("HTTP  Request: %s %s (body:%d)\n", req.Method, req.URL, s)
 	}
-	req.ParseMultipartForm(defaultMaxMemory)
-	log.Printf("%#v",req)
-
+	if req != nil {
+	   req.ParseMultipartForm(defaultMaxMemory)
+	   log.Printf("%#v",req)
+	}
 	//wait read all packet
 	for{
 		_,err = hreq.Read(p)
