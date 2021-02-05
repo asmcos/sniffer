@@ -11,7 +11,8 @@ package main
 import (
 	"bufio"
 	"bytes"
-	_"compress/gzip"
+	"compress/gzip"
+	"compress/zlib"
 	_"encoding/binary"
 	"encoding/hex"
 	"flag"
@@ -29,6 +30,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"encoding/json"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/examples/util"
@@ -61,6 +63,7 @@ var hexdumppkt = flag.Bool("dumppkt", false, "Dump packet as hex")
 
 // capture
 var iface = flag.String("i", "eth0", "Interface to read packets from")
+var port = flag.Int("p", 80, "Interface to read packets from")
 var fname = flag.String("r", "", "Filename to read from, overrides -i")
 var snaplen = flag.Int("s", 65536, "Snap length (number of bytes max to read per packet")
 var tstype = flag.String("timestamp_type", "", "Type of timestamps to use")
@@ -147,6 +150,33 @@ func Debug(s string, a ...interface{}) {
 		fmt.Printf(s, a...)
 	}
 }
+
+func (h *httpRequest) DecompressBody(header http.Header, reader io.ReadCloser) (io.ReadCloser, bool) {
+	contentEncoding := header.Get("Content-Encoding")
+	var nr io.ReadCloser
+	var err error
+	if contentEncoding == "" {
+		// do nothing
+		return reader, false
+	} else if strings.Contains(contentEncoding, "gzip") {
+		nr, err = gzip.NewReader(reader)
+		if err != nil {
+			return reader, false
+		}
+		return nr, true
+	} else if strings.Contains(contentEncoding, "deflate") {
+		nr, err = zlib.NewReader(reader)
+		if err != nil {
+			return reader, false
+		}
+		return nr, true
+	} else {
+		return reader, false
+	}
+}
+
+
+
 
 //server to client
 func  isResponse(data []byte) (bool,string) {
@@ -241,17 +271,36 @@ func (hreq * httpRequest) HandleRequest () {
         Error("HTTP-request", "HTTP Request error: %s (%v,%+v)\n", err, err, err)
 
     } else {
-		body, err := ioutil.ReadAll(req.Body)
+		/*body, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 		 Error("HTTP-request-body", "Got body err: %s\n", err)
 		}
 		s := len(body)
 		req.Body.Close()
 		log.Printf("HTTP  Request: %s %s (body:%d)\n", req.Method, req.URL, s)
-	}
-	if req != nil {
-	   req.ParseMultipartForm(defaultMaxMemory)
-	   log.Printf("%#v",req)
+		*/
+	    req.ParseMultipartForm(defaultMaxMemory)
+
+        r,ok := hreq.DecompressBody(req.Header,req.Body)
+		if ok {
+			defer r.Close()
+		}
+		contentType := req.Header.Get("Content-Type")
+
+		if strings.Contains(contentType,"application/json"){
+
+			bodydata, err := ioutil.ReadAll(r)
+			if err == nil {
+				var jsonValue interface{}
+				err = json.Unmarshal([]byte(bodydata), &jsonValue)
+				if err == nil {
+					log.Printf("%#v",jsonValue)
+				}
+			}
+		}
+
+		log.Printf("HTTP  Request: %s %s %s\n", req.Method, req.URL,contentType)
+	    log.Printf("%#v",req)
 	}
 	//wait read all packet
 	for{
@@ -328,8 +377,8 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 		net:        net,
 		transport:  transport,
 		isDNS:      tcp.SrcPort == 53 || tcp.DstPort == 53,
-		isHTTP:     (tcp.SrcPort == 80 || tcp.DstPort == 80) && factory.doHTTP,
-		reversed:   tcp.SrcPort == 80,
+		isHTTP:     (tcp.SrcPort == layers.TCPPort(*port) || tcp.DstPort == layers.TCPPort(*port)) && factory.doHTTP,
+		reversed:   tcp.SrcPort == layers.TCPPort(*port),
 		tcpstate:   reassembly.NewTCPSimpleFSM(fsmOptions),
 		ident:      fmt.Sprintf("%s:%s", net, transport),
 		optchecker: reassembly.NewTCPOptionCheck(),
@@ -561,7 +610,7 @@ func main() {
 		}
 	} else {
 
-		bpffilter := "tcp and port 80"
+		bpffilter := fmt.Sprintf("tcp and port %d",*port)
 		if err = handle.SetBPFFilter(bpffilter); err != nil {
             log.Fatal("BPF filter error:", err)
         }
