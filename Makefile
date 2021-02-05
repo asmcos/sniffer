@@ -1,5 +1,6 @@
 sniffer: *.go
-	sudo go run sniffer.go http.go -i en0
+	go build sniffer.go
+	sudo ./sniffer -i en0 >sniffer.log
 
 httpdump: *.go
 	go build -v -o httpdump main.go db_orm.go http_parse.go server.go reader_bytes.go
