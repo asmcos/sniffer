@@ -472,7 +472,6 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 			}
 		}
 	}
-	
 
 	// Checksum
 	accept := true
@@ -569,6 +568,7 @@ func main() {
 	} else if *quiet {
 		outputLevel = -1
 	}
+	log.SetOutput(os.Stdout)
 	errorsMap = make(map[string]uint)
 	if *fname != "" {
 		if handle, err = pcap.OpenOffline(*fname); err != nil {
