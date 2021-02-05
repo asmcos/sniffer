@@ -68,6 +68,11 @@ var promisc = flag.Bool("promisc", true, "Set promiscuous mode")
 
 var memprofile = flag.String("memprofile", "", "Write memory profile")
 
+const (
+	defaultMaxMemory = 32 << 20 // 32 MB
+)
+
+
 var stats struct {
 	ipdefrag            int
 	missedBytes         int
@@ -236,17 +241,17 @@ func (hreq * httpRequest) HandleRequest () {
         Error("HTTP-request", "HTTP Request error: %s (%v,%+v)\n", err, err, err)
 
     } else {
-    	body, err := ioutil.ReadAll(req.Body)
-    	if err != nil {
-        	 Error("HTTP-request-body", "Got body err: %s\n", err)
-    	}
-    	s := len(body)
-    	req.Body.Close()
-    	log.Printf("HTTP  Request: %s %s (body:%d)\n", req.Method, req.URL, s)
+		body, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+		 Error("HTTP-request-body", "Got body err: %s\n", err)
+		}
+		s := len(body)
+		req.Body.Close()
+		log.Printf("HTTP  Request: %s %s (body:%d)\n", req.Method, req.URL, s)
 	}
-	req.MultipartReader()
+	req.ParseMultipartForm(defaultMaxMemory)
 	log.Printf("%#v",req)
-	
+
 	//wait read all packet
 	for{
 		_,err = hreq.Read(p)
@@ -291,14 +296,14 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 						start:   true,
 				}
 				go req.HandleRequest()
-				req.bytes <- p
+				req.bytes <- p[:l]
 
 			} else if req.start{ //other data
 
-				req.bytes <- p
+				req.bytes <- p[:l]
 			}
 		} else if req.start {
-			req.bytes <- p
+			req.bytes <- p[:l]
 		}
 	}
 
