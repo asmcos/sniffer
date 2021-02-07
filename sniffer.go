@@ -6,6 +6,12 @@
 
 // The pcapdump binary implements a tcpdump-like command line tool with gopacket
 // using pcap as a backend data collection mechanism.
+// 
+// Use tcpassembly.go in the gpacket reassembly directory instead of the tcpassembly directory.
+// HTTP protocol analysis, the request and response start flags need to be detected to prevent packet leakage.
+// Author: asmcos
+// Date: 2018
+//
 package main
 
 import (
@@ -13,7 +19,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"compress/zlib"
-	_"encoding/binary"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -21,11 +26,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	_"net/url"
 	"net/textproto"
 	"os"
 	"os/signal"
-	_"path"
 	"runtime/pprof"
 	"strings"
 	"sync"
@@ -188,8 +191,34 @@ func  isResponse(data []byte) (bool,string) {
     return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),firstLine
 }
 
-var resp_count = 0;
-var req_count = 0;
+var respCount = 0;
+var reqCount = 0;
+/*var originRespCount = 0;
+var originReqCount = 0;
+*/
+var lockCount sync.Mutex
+
+func detectHttp(data []byte) bool {
+
+	ishttp,_ := isResponse(data)
+	if ishttp{
+		/*lockCount.Lock()
+		originRespCount ++
+		lockCount.Unlock()
+		fmt.Println("origin http response ",firstLine,originRespCount)
+		*/return true
+	}
+
+	ishttp,_ = isRequest(data)
+	if ishttp{
+		/*lockCount.Lock()
+		originReqCount ++
+		lockCount.Unlock()
+		fmt.Println("origin http request ",firstLine,originReqCount)
+		*/return true
+	}
+	return false
+}
 
 func (h *httpReader) runServer(wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -204,8 +233,10 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 		}
 		isResp,firstLine:= isResponse(p)
 		if(isResp){
-			resp_count ++
-			log.Println(firstLine,resp_count)
+			lockCount.Lock()
+			respCount ++
+			lockCount.Unlock()
+			log.Println(firstLine,respCount)
 			buf := bytes.NewBuffer(p)
 			b := bufio.NewReader(buf)
 			res, err := http.ReadResponse(b, nil)
@@ -271,14 +302,7 @@ func (hreq * httpRequest) HandleRequest () {
         Error("HTTP-request", "HTTP Request error: %s (%v,%+v)\n", err, err, err)
 
     } else {
-		/*body, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-		 Error("HTTP-request-body", "Got body err: %s\n", err)
-		}
-		s := len(body)
-		req.Body.Close()
-		log.Printf("HTTP  Request: %s %s (body:%d)\n", req.Method, req.URL, s)
-		*/
+
 	    req.ParseMultipartForm(defaultMaxMemory)
 
         r,ok := hreq.DecompressBody(req.Header,req.Body)
@@ -331,8 +355,10 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 		if( l > 8 ){
 			isReq,firstLine := isRequest(p)
 			if(isReq){ //start new request
-				req_count ++
-				log.Println(firstLine,req_count)
+				lockCount.Lock()
+				reqCount ++
+				lockCount.Unlock()
+				log.Println(firstLine,reqCount)
 
 				if req.start { //如果存在正在处理的request，给request发结束通知，开始处理新的request 
 					close(req.bytes)
@@ -443,6 +469,8 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 	// FSM
 
 
+	*start = detectHttp(tcp.Payload)
+
 	if !t.tcpstate.CheckState(tcp, dir) {
 		Error("FSM", "%s: Packet rejected by FSM (state:%s)\n", t.ident, t.tcpstate.String())
 		stats.rejectFsm++
@@ -494,6 +522,7 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 func (t *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.AssemblerContext) {
 	dir, start, end, skip := sg.Info()
 	length, saved := sg.Lengths()
+
 	// update stats
 	sgStats := sg.Stats()
 	if skip > 0 {
@@ -691,6 +720,8 @@ func main() {
 				CaptureInfo: packet.Metadata().CaptureInfo,
 			}
 			stats.totalsz += len(tcp.Payload)
+
+
 			assembler.AssembleWithContext(packet.NetworkLayer().NetworkFlow(), tcp, &c)
 		}
 		if count%*statsevery == 0 {
