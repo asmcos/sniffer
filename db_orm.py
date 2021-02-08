@@ -1,11 +1,11 @@
 # use SqlAlchemy
-
+# support python3
 from sqlalchemy import create_engine,ForeignKey
 from sqlalchemy.orm import sessionmaker,relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import  String,Column,Integer,DateTime
 import datetime
-engine = create_engine("mysql+mysqldb://cpython:cpython.org@localhost:3306/httpdump")
+engine = create_engine("mysql+pymysql://cpython:cpython.org@localhost:3306/httpdump")
 
 Session = sessionmaker(bind=engine)
 ses = Session()

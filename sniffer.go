@@ -111,6 +111,7 @@ type httpReader struct {
 	data     []byte
 	hexdump  bool
 	parent   *tcpStream
+	logbuf   string
 }
 
 func (h *httpReader) Read(p []byte) (int, error) {
@@ -125,6 +126,12 @@ func (h *httpReader) Read(p []byte) (int, error) {
 	l := copy(p, h.data)
 	h.data = h.data[l:]
 	return l, nil
+}
+
+func (h *httpReader) Print() {
+
+	fmt.Println(h.logbuf)
+
 }
 
 var outputLevel int
@@ -191,34 +198,60 @@ func  isResponse(data []byte) (bool,string) {
     return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),firstLine
 }
 
+
+func printHeader(h http.Header)string{
+	var logbuf string
+
+    for k,v := range h{
+        logbuf += fmt.Sprintf("%s :%s\n",k,v)
+    }
+	return logbuf
+}
+
+func printRequest(req *http.Request)string{
+
+    logbuf := fmt.Sprintf("\n")
+    logbuf += fmt.Sprintf("%s\n",req.Host)
+    logbuf += fmt.Sprintf("%s %s %s \n",req.Method, req.RequestURI, req.Proto)
+    logbuf += printHeader(req.Header)
+
+    logbuf += fmt.Sprintf("\n")
+	return logbuf
+}
+
+func printResponse(resp *http.Response)string{
+
+    logbuf := fmt.Sprintf("\n")
+    logbuf += fmt.Sprintf("%s %s\n",resp.Proto, resp.Status)
+    logbuf += printHeader(resp.Header)
+    logbuf += fmt.Sprintf("\n")
+	return logbuf
+}
+
+
+
+
 var respCount = 0;
 var reqCount = 0;
-/*var originRespCount = 0;
-var originReqCount = 0;
-*/
 var lockCount sync.Mutex
 
 func detectHttp(data []byte) bool {
 
 	ishttp,_ := isResponse(data)
 	if ishttp{
-		/*lockCount.Lock()
-		originRespCount ++
-		lockCount.Unlock()
-		fmt.Println("origin http response ",firstLine,originRespCount)
-		*/return true
+		return true
 	}
 
 	ishttp,_ = isRequest(data)
 	if ishttp{
-		/*lockCount.Lock()
-		originReqCount ++
-		lockCount.Unlock()
-		fmt.Println("origin http request ",firstLine,originReqCount)
-		*/return true
+		return true
 	}
+
 	return false
 }
+
+
+
 
 func (h *httpReader) runServer(wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -236,13 +269,17 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 			lockCount.Lock()
 			respCount ++
 			lockCount.Unlock()
-			log.Println(firstLine,respCount)
+			h.logbuf += fmt.Sprintf("%s %d\n",firstLine,respCount)
+
 			buf := bytes.NewBuffer(p)
 			b := bufio.NewReader(buf)
 			res, err := http.ReadResponse(b, nil)
 			if err == nil{
-				log.Printf("%#v",res)
+				h.logbuf += printResponse(res)
 			}
+
+	        h.Print()
+			h.logbuf = ""
 		}
 
 	}
@@ -311,6 +348,8 @@ func (hreq * httpRequest) HandleRequest () {
 		}
 		contentType := req.Header.Get("Content-Type")
 
+		logbuf := printRequest(req)
+
 		if strings.Contains(contentType,"application/json"){
 
 			bodydata, err := ioutil.ReadAll(r)
@@ -318,14 +357,14 @@ func (hreq * httpRequest) HandleRequest () {
 				var jsonValue interface{}
 				err = json.Unmarshal([]byte(bodydata), &jsonValue)
 				if err == nil {
-					log.Printf("%#v",jsonValue)
+					logbuf += fmt.Sprintf("%#v\n",jsonValue)
 				}
 			}
 		}
 
-		log.Printf("HTTP  Request: %s %s %s\n", req.Method, req.URL,contentType)
-	    log.Printf("%#v",req)
+	   fmt.Printf("%s",logbuf)
 	}
+
 	//wait read all packet
 	for{
 		_,err = hreq.Read(p)
