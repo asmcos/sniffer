@@ -112,6 +112,10 @@ type httpReader struct {
 	hexdump  bool
 	parent   *tcpStream
 	logbuf   string
+	srcip    string
+	dstip    string
+	srcport  string
+	dstport  string
 }
 
 func (h *httpReader) Read(p []byte) (int, error) {
@@ -269,6 +273,7 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 			lockCount.Lock()
 			respCount ++
 			lockCount.Unlock()
+			h.logbuf += fmt.Sprintf("%v->%v:%v->%v\n",h.srcip,h.dstip,h.srcport,h.dstport)
 			h.logbuf += fmt.Sprintf("%s %d\n",firstLine,respCount)
 
 			buf := bytes.NewBuffer(p)
@@ -307,6 +312,7 @@ type httpRequest struct {
     done     chan bool
 	data     []byte
 	start    bool
+	parent   *httpReader
 }
 
 
@@ -347,8 +353,8 @@ func (hreq * httpRequest) HandleRequest () {
 			defer r.Close()
 		}
 		contentType := req.Header.Get("Content-Type")
-
-		logbuf := printRequest(req)
+		logbuf := fmt.Sprintf("%v->%v:%v->%v\n",hreq.parent.srcip,hreq.parent.dstip,hreq.parent.srcport,hreq.parent.dstport)
+		logbuf += printRequest(req)
 
 		if strings.Contains(contentType,"application/json"){
 
@@ -383,6 +389,7 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 			bytes:   make(chan []byte),
 			done:   make(chan bool),
 			start:   false,
+			parent:  h,
 	}
 
 	for {
@@ -409,6 +416,7 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 						bytes:   make(chan []byte),
 						done:   make(chan bool),
 						start:   true,
+						parent: h,
 				}
 				go req.HandleRequest()
 				req.bytes <- p[:l]
@@ -435,6 +443,10 @@ type tcpStreamFactory struct {
 
 func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.TCP, ac reassembly.AssemblerContext) reassembly.Stream {
 	Debug("* NEW: %s %s\n", net, transport)
+	sip,dip := net.Endpoints()
+	srcip := fmt.Sprintf("%s",sip)
+	dstip := fmt.Sprintf("%s",dip)
+
 	fsmOptions := reassembly.TCPSimpleFSMOptions{
 		SupportMissingEstablishment: *allowmissinginit,
 	}
@@ -455,12 +467,20 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 			hexdump:  *hexdump,
 			parent:   stream,
 			isClient: true,
+			srcport: fmt.Sprintf("%s",tcp.SrcPort),
+			dstport: fmt.Sprintf("%s",tcp.DstPort),
+			srcip: srcip,
+			dstip: dstip,
 		}
 		stream.server = httpReader{
 			bytes:   make(chan []byte),
 			ident:   fmt.Sprintf("%s %s", net.Reverse(), transport.Reverse()),
 			hexdump: *hexdump,
 			parent:  stream,
+			srcport: fmt.Sprintf("%s",tcp.SrcPort),
+			dstport: fmt.Sprintf("%s",tcp.DstPort),
+			srcip: srcip,
+			dstip: dstip,
 		}
 		factory.wg.Add(2)
 		go stream.client.runClient(&factory.wg)
