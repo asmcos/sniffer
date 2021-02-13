@@ -467,8 +467,8 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 			hexdump:  *hexdump,
 			parent:   stream,
 			isClient: true,
-			srcport: fmt.Sprintf("%s",tcp.SrcPort),
-			dstport: fmt.Sprintf("%s",tcp.DstPort),
+			srcport: fmt.Sprintf("%d",tcp.SrcPort),
+			dstport: fmt.Sprintf("%d",tcp.DstPort),
 			srcip: srcip,
 			dstip: dstip,
 		}
@@ -477,10 +477,10 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 			ident:   fmt.Sprintf("%s %s", net.Reverse(), transport.Reverse()),
 			hexdump: *hexdump,
 			parent:  stream,
-			srcport: fmt.Sprintf("%s",tcp.SrcPort),
-			dstport: fmt.Sprintf("%s",tcp.DstPort),
-			srcip: srcip,
-			dstip: dstip,
+			dstport: fmt.Sprintf("%d",tcp.SrcPort),
+			srcport: fmt.Sprintf("%d",tcp.DstPort),
+			dstip: srcip,
+			srcip: dstip,
 		}
 		factory.wg.Add(2)
 		go stream.client.runClient(&factory.wg)
