@@ -41,6 +41,9 @@ import (
 	"github.com/google/gopacket/layers" // pulls in all layers decoders
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/reassembly"
+
+	"github.com/jinzhu/gorm"
+
 )
 
 var maxcount = flag.Int("c", -1, "Only grab this many packets, then exit")
@@ -78,6 +81,16 @@ const (
 	defaultMaxMemory = 32 << 20 // 32 MB
 )
 
+var db *gorm.DB
+func HeaderToDB(h http.Header,t uint,id uint){
+
+
+    for n,v :=range h{
+        val := strings.Join(v,", ")
+
+        InsertHeaders(db,n ,val ,t ,id )
+    }
+}
 
 var stats struct {
 	ipdefrag            int
@@ -285,6 +298,16 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 
 	        h.Print()
 			h.logbuf = ""
+
+			req := FindRequestFirst(db,h.srcip,h.srcport,h.dstip,h.dstport)
+
+			id := InsertResponseData(db,&ResponseTable{FirstLine:firstLine,
+              StatusCode:res.StatusCode,
+              SrcIp:h.srcip,SrcPort:h.srcport,
+              DstIp:h.dstip,DstPort:h.dstport},&req)
+
+        	// type 1 is request, 2 is response
+        	HeaderToDB(res.Header,2,id)	
 		}
 
 	}
@@ -313,6 +336,7 @@ type httpRequest struct {
 	data     []byte
 	start    bool
 	parent   *httpReader
+	firstline string
 }
 
 
@@ -369,6 +393,16 @@ func (hreq * httpRequest) HandleRequest () {
 		}
 
 	   fmt.Printf("%s",logbuf)
+
+	   id := InsertRequestData(db,&RequestTable{FirstLine:hreq.firstline,
+              Host:req.Host,
+              RequestURI:req.RequestURI,
+              SrcIp:hreq.parent.srcip,SrcPort:hreq.parent.srcport,
+              DstIp:hreq.parent.dstip,DstPort:hreq.parent.dstport})
+
+
+        // type 1 is request, 2 is response
+        HeaderToDB(req.Header,1,id)
 	}
 
 	//wait read all packet
@@ -417,6 +451,7 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 						done:   make(chan bool),
 						start:   true,
 						parent: h,
+						firstline:firstLine,
 				}
 				go req.HandleRequest()
 				req.bytes <- p[:l]
@@ -704,6 +739,8 @@ func main() {
         }
 
 	}
+	// initial database by gorm ;db_orm.go
+	db = InitDB ()
 
 	var dec gopacket.Decoder
 	var ok bool
