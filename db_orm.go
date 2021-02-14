@@ -51,7 +51,7 @@ type returnReqs struct{
     Total  int;
 }
 
-func init_db()(newdb *gorm.DB) {
+func InitDB()(newdb *gorm.DB) {
 
         newdb, _ = gorm.Open("sqlite3", "./httpdump.db")
 
