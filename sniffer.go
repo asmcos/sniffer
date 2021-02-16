@@ -307,7 +307,7 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
               DstIp:h.dstip,DstPort:h.dstport},&req)
 
         	// type 1 is request, 2 is response
-        	HeaderToDB(res.Header,2,id)	
+        	HeaderToDB(res.Header,2,id)
 		}
 
 	}
@@ -741,6 +741,9 @@ func main() {
 	}
 	// initial database by gorm ;db_orm.go
 	db = InitDB ()
+	defer db.Close()
+
+	go InitHdServer()
 
 	var dec gopacket.Decoder
 	var ok bool
