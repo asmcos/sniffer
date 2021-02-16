@@ -272,7 +272,6 @@ func detectHttp(data []byte) bool {
 
 func (h *httpReader) runServer(wg *sync.WaitGroup) {
 	defer wg.Done()
-    defer close(h.parent.reqmsg)
 
 	var p  = make([]byte,1900)
 
