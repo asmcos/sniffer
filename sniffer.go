@@ -272,6 +272,7 @@ func detectHttp(data []byte) bool {
 
 func (h *httpReader) runServer(wg *sync.WaitGroup) {
 	defer wg.Done()
+    defer close(h.parent.reqmsg)
 
 	var p  = make([]byte,1900)
 
@@ -298,9 +299,14 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 
 	        h.Print()
 			h.logbuf = ""
-            //wait request message
-            <-h.parent.reqmsg
 
+            select {
+                //wait request message
+            case <-h.parent.reqmsg:
+                if true {}
+            case <-time.After(10 * time.Minute):
+                fmt.Println("Not found request")
+            }
 			req := FindRequestFirst(db,h.srcip,h.srcport,h.dstip,h.dstport)
 
 			id := InsertResponseData(db,&ResponseTable{FirstLine:firstLine,
@@ -401,10 +407,18 @@ func (hreq * httpRequest) HandleRequest () {
               RequestURI:req.RequestURI,
               SrcIp:hreq.parent.srcip,SrcPort:hreq.parent.srcport,
               DstIp:hreq.parent.dstip,DstPort:hreq.parent.dstport})
-        //write reqmsg to response 
-        hreq.parent.parent.reqmsg <- 1
         // type 1 is request, 2 is response
         HeaderToDB(req.Header,1,id)
+
+        select {
+            //write reqmsg to response 
+            case hreq.parent.parent.reqmsg <- 1 :
+                if true {}
+            case <-time.After(10 * time.Minute):
+                fmt.Println("Not found response")
+                close(hreq.parent.parent.reqmsg)
+        }
+
 	}
 
 	//wait read all packet
@@ -419,7 +433,6 @@ func (hreq * httpRequest) HandleRequest () {
 
 func (h *httpReader) runClient(wg *sync.WaitGroup) {
 	defer wg.Done()
-    defer close(h.parent.reqmsg)
 
 	var p  = make([]byte,1900)
 	var req = httpRequest{
