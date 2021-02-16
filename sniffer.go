@@ -272,6 +272,7 @@ func detectHttp(data []byte) bool {
 
 func (h *httpReader) runServer(wg *sync.WaitGroup) {
 	defer wg.Done()
+    defer close(h.parent.reqmsg)
 
 	var p  = make([]byte,1900)
 
@@ -298,6 +299,8 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 
 	        h.Print()
 			h.logbuf = ""
+            //wait request message
+            <-h.parent.reqmsg
 
 			req := FindRequestFirst(db,h.srcip,h.srcport,h.dstip,h.dstport)
 
@@ -306,8 +309,8 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
               SrcIp:h.srcip,SrcPort:h.srcport,
               DstIp:h.dstip,DstPort:h.dstport},&req)
 
-        	// type 1 is request, 2 is response
-        	HeaderToDB(res.Header,2,id)
+            // type 1 is request, 2 is response	
+            HeaderToDB(res.Header,2,id)
 		}
 
 	}
@@ -399,8 +402,8 @@ func (hreq * httpRequest) HandleRequest () {
               RequestURI:req.RequestURI,
               SrcIp:hreq.parent.srcip,SrcPort:hreq.parent.srcport,
               DstIp:hreq.parent.dstip,DstPort:hreq.parent.dstport})
-
-
+        //write reqmsg to response 
+        hreq.parent.parent.reqmsg <- 1
         // type 1 is request, 2 is response
         HeaderToDB(req.Header,1,id)
 	}
@@ -417,6 +420,7 @@ func (hreq * httpRequest) HandleRequest () {
 
 func (h *httpReader) runClient(wg *sync.WaitGroup) {
 	defer wg.Done()
+    defer close(h.parent.reqmsg)
 
 	var p  = make([]byte,1900)
 	var req = httpRequest{
@@ -454,6 +458,7 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 						firstline:firstLine,
 				}
 				go req.HandleRequest()
+
 				req.bytes <- p[:l]
 
 			} else if req.start{ //other data
@@ -494,6 +499,7 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 		tcpstate:   reassembly.NewTCPSimpleFSM(fsmOptions),
 		ident:      fmt.Sprintf("%s:%s", net, transport),
 		optchecker: reassembly.NewTCPOptionCheck(),
+        reqmsg: make(chan int),
 	}
 	if stream.isHTTP {
 		stream.client = httpReader{
@@ -557,6 +563,7 @@ type tcpStream struct {
 	urls           []string
 	ident          string
 	sync.Mutex
+    reqmsg            chan int
 }
 
 func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassembly.TCPFlowDirection, nextSeq reassembly.Sequence, start *bool, ac reassembly.AssemblerContext) bool {
