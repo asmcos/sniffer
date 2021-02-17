@@ -304,7 +304,7 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
                 //wait request message
             case <-h.parent.reqmsg:
                 if true {}
-            case <-time.After(10 * time.Minute):
+            case <-time.After(5 * time.Minute):
                 fmt.Println("Not found request")
             }
 			req := FindRequestFirst(db,h.srcip,h.srcport,h.dstip,h.dstport)
@@ -414,7 +414,7 @@ func (hreq * httpRequest) HandleRequest () {
             //write reqmsg to response 
             case hreq.parent.parent.reqmsg <- 1 :
                 if true {}
-            case <-time.After(10 * time.Minute):
+            case <-time.After(5 * time.Minute):
                 fmt.Println("Not found response")
                 close(hreq.parent.parent.reqmsg)
         }
@@ -423,10 +423,15 @@ func (hreq * httpRequest) HandleRequest () {
 
 	//wait read all packet
 	for{
-		_,err = hreq.Read(p)
-		if err == io.EOF{
-			return
-		}
+        select {
+        case <-time.After(time.Nanosecond):
+		    _,err = hreq.Read(p)
+		    if err == io.EOF{
+			    return
+		    }
+        case <-time.After(5 * time.Minute):
+            return
+        }
 	}
 
 }
