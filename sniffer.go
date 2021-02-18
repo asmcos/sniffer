@@ -699,7 +699,6 @@ func (t *tcpStream) ReassemblyComplete(ac reassembly.AssemblerContext) bool {
 		close(t.server.bytes)
 	}
 	// do not remove the connection to allow last ACK
-    close(t.reqmsg)
 	return false
 }
 
