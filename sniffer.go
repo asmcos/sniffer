@@ -247,11 +247,6 @@ func printResponse(resp *http.Response)string{
 
 
 
-
-var respCount = 0;
-var reqCount = 0;
-var lockCount sync.Mutex
-
 func detectHttp(data []byte) bool {
 
 	ishttp,_ := isResponse(data)
@@ -283,11 +278,8 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 		}
 		isResp,firstLine:= isResponse(p)
 		if(isResp){
-			lockCount.Lock()
-			respCount ++
-			lockCount.Unlock()
 			h.logbuf += fmt.Sprintf("%v->%v:%v->%v\n",h.srcip,h.dstip,h.srcport,h.dstport)
-			h.logbuf += fmt.Sprintf("%s %d\n",firstLine,respCount)
+			h.logbuf += fmt.Sprintf("%s\n",firstLine)
 
 			buf := bytes.NewBuffer(p)
 			b := bufio.NewReader(buf)
@@ -454,10 +446,7 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 		if( l > 8 ){
 			isReq,firstLine := isRequest(p)
 			if(isReq){ //start new request
-				lockCount.Lock()
-				reqCount ++
-				lockCount.Unlock()
-				log.Println(firstLine,reqCount)
+				log.Println(firstLine)
 
 				if req.start { //如果存在正在处理的request，给request发结束通知，开始处理新的request 
 					close(req.bytes)
@@ -546,6 +535,7 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 }
 
 func (factory *tcpStreamFactory) WaitGoRoutines() {
+    log.Println("wait....")
 	factory.wg.Wait()
 }
 
