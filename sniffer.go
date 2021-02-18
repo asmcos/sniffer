@@ -272,7 +272,6 @@ func detectHttp(data []byte) bool {
 
 func (h *httpReader) runServer(wg *sync.WaitGroup) {
 	defer wg.Done()
-    defer close(h.parent.reqmsg)
 
 	var p  = make([]byte,1900)
 
@@ -416,7 +415,6 @@ func (hreq * httpRequest) HandleRequest () {
                 if true {}
             case <-time.After(5 * time.Minute):
                 fmt.Println("Not found response")
-                close(hreq.parent.parent.reqmsg)
         }
 
 	}
@@ -701,6 +699,7 @@ func (t *tcpStream) ReassemblyComplete(ac reassembly.AssemblerContext) bool {
 		close(t.server.bytes)
 	}
 	// do not remove the connection to allow last ACK
+    close(t.reqmsg)
 	return false
 }
 
