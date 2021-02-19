@@ -640,7 +640,11 @@ func (t * tcpStream) UpdateReq(req * http.Request,timestamp int64,firstLine stri
                 t.all[i].reqFirstLine = firstLine
                 if hg.respFlag == 2{
                     t.Save(&t.all[i])
-                    t.all = append(t.all[:i],t.all[i+i:]...)
+                    if i < len(t.all){
+                        t.all = append(t.all[:i],t.all[i+i:]...)
+                    } else {
+                        t.all = t.all[:i]
+                    }
                 }
          } //if timestramp
 
@@ -660,7 +664,11 @@ func (t * tcpStream) UpdateResp(resp * http.Response,timestamp int64,firstLine s
                 t.all[i].respFirstLine = firstLine
                 if hg.reqFlag == 2{
                     t.Save(&t.all[i])
-                    t.all = append(t.all[:i],t.all[i+i:]...)
+                    if i < len(t.all){
+                        t.all = append(t.all[:i],t.all[i+i:]...)
+                    } else {
+                        t.all = t.all[:i]
+                    }
                 }
          } //if timestramp
 
