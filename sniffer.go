@@ -292,6 +292,8 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 		}
 		isResp,firstLine:= isResponse(p)
 		if(isResp){
+            timeStamp := <-h.timeStamp
+            fmt.Println(timeStamp)
 			h.logbuf += fmt.Sprintf("%v->%v:%v->%v\n",h.srcip,h.dstip,h.srcport,h.dstport)
 			h.logbuf += fmt.Sprintf("%s\n",firstLine)
 
@@ -368,7 +370,7 @@ func (h *httpRequest) Read(p []byte) (int, error) {
 
 
 
-func (hreq * httpRequest) HandleRequest () {
+func (hreq * httpRequest) HandleRequest (timeStamp int64) {
 
 	var p  = make([]byte,1900)
 	b := bufio.NewReader(hreq)
@@ -445,6 +447,8 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 		if( l > 8 ){
 			isReq,firstLine := isRequest(p)
 			if(isReq){ //start new request
+                //timeStamp := <-h.timeStamp
+                timeStamp := int64(4532534)
 				log.Println(firstLine)
 
 				if req.start { //如果存在正在处理的request，给request发结束通知，开始处理新的request 
@@ -460,7 +464,7 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 						parent: h,
 						firstline:firstLine,
 				}
-				go req.HandleRequest()
+				go req.HandleRequest(timeStamp)
 
 				req.bytes <- p[:l]
 
@@ -633,7 +637,7 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 
         ts := fmt.Sprintf("%v",ci.Timestamp.UnixNano())
         fmt.Println(tcp.Seq,dir,ts ,isReq)
-
+        t.NewhttpGroup(isReq,ci.Timestamp.UnixNano())
     }
 
 	if !t.tcpstate.CheckState(tcp, dir) {
@@ -742,8 +746,14 @@ func (t *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 			//if dir == reassembly.TCPDirClientToServer && !t.reversed {
 			if !t.reversed {
 				t.client.bytes <- data
+				if ok {
+                    //t.client.timeStamp <- timeStamp
+                }
 			} else {
 				t.server.bytes <- data
+				if ok {
+                    t.server.timeStamp <- timeStamp
+                }
 			}
 		}
 	}
