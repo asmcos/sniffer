@@ -285,7 +285,6 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 	var p  = make([]byte,1900)
 
 	for ;;{
-
 		_,err := h.Read(p)
 		if (err == io.EOF){
 			return
@@ -293,7 +292,6 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 		isResp,firstLine:= isResponse(p)
 		if(isResp){
             timeStamp := <-h.timeStamp
-            fmt.Println(timeStamp)
 			h.logbuf += fmt.Sprintf("%v->%v:%v->%v\n",h.srcip,h.dstip,h.srcport,h.dstport)
 			h.logbuf += fmt.Sprintf("%s\n",firstLine)
 
@@ -307,11 +305,12 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 			h.logbuf = ""
 
 
-
+            h.parent.UpdateResp(res,timeStamp,firstLine)
 
             if res == nil{
                 continue
             }
+/*
 			req := FindRequestFirst(db,h.srcip,h.srcport,h.dstip,h.dstport)
 
 			id := InsertResponseData(db,&ResponseTable{FirstLine:firstLine,
@@ -321,6 +320,7 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 
             // type 1 is request, 2 is response	
             HeaderToDB(res.Header,2,id)
+*/
 		}
 
 	}
@@ -376,6 +376,7 @@ func (hreq * httpRequest) HandleRequest (timeStamp int64) {
 	b := bufio.NewReader(hreq)
 
     req, err := http.ReadRequest(b)
+    hreq.parent.parent.UpdateReq(req,timeStamp,hreq.firstline)
     if err == io.EOF || err == io.ErrUnexpectedEOF {
         return
     } else if err != nil {
@@ -406,7 +407,7 @@ func (hreq * httpRequest) HandleRequest (timeStamp int64) {
 		}
 
 	   fmt.Printf("%s",logbuf)
-
+/*
 	   id := InsertRequestData(db,&RequestTable{FirstLine:hreq.firstline,
               Host:req.Host,
               RequestURI:req.RequestURI,
@@ -414,7 +415,7 @@ func (hreq * httpRequest) HandleRequest (timeStamp int64) {
               DstIp:hreq.parent.dstip,DstPort:hreq.parent.dstport})
         // type 1 is request, 2 is response
         HeaderToDB(req.Header,1,id)
-
+*/
 	}
 
 	//wait read all packet
@@ -447,8 +448,7 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 		if( l > 8 ){
 			isReq,firstLine := isRequest(p)
 			if(isReq){ //start new request
-                //timeStamp := <-h.timeStamp
-                timeStamp := int64(4532534)
+                timeStamp := <-h.timeStamp
 				log.Println(firstLine)
 
 				if req.start { //如果存在正在处理的request，给request发结束通知，开始处理新的request 
@@ -588,13 +588,12 @@ func (t * tcpStream) NewhttpGroup(req int,timestamp int64) {
 
     }
 
-
     if req == 1 {
         //try find response 
-        for _, hg := range  t.all {
+        for i, hg := range  t.all {
             if hg.respFlag > 0 && hg.reqFlag == 0{
-                hg.respFlag = 1
-                hg.respTimeStamp = timestamp
+                t.all[i].respFlag = 1
+                t.all[i].respTimeStamp = timestamp
                 return
             }
         }
@@ -608,10 +607,10 @@ func (t * tcpStream) NewhttpGroup(req int,timestamp int64) {
 
     } else {
         //try find request
-        for _, hg := range  t.all {
+        for i, hg := range  t.all {
             if hg.reqFlag > 0 && hg.respFlag == 0{
-                hg.respFlag = 1
-                hg.respTimeStamp = timestamp
+                t.all[i].respFlag = 1
+                t.all[i].respTimeStamp = timestamp
                 return
             }
         }
@@ -621,8 +620,70 @@ func (t * tcpStream) NewhttpGroup(req int,timestamp int64) {
             reqFlag :0,
         }
         t.all = append(t.all,hg)
-
     }
+
+}
+
+func (t * tcpStream) UpdateReq(req * http.Request,timestamp int64,firstLine string) {
+
+    for i, hg := range  t.all {
+         if hg.reqTimeStamp == timestamp {
+                t.all[i].req = req
+                t.all[i].reqFlag = 2
+                t.all[i].reqFirstLine = firstLine
+                if hg.respFlag == 2{
+                    fmt.Println("*********************I got it *****************")
+                    t.Save(&t.all[i])
+                }
+         } //if timestramp
+
+    }//for
+
+}
+
+func (t * tcpStream) UpdateResp(resp * http.Response,timestamp int64,firstLine string) {
+
+
+    for i, hg := range  t.all {
+         if hg.respTimeStamp == timestamp {
+                t.all[i].resp = resp
+                t.all[i].respFlag = 2
+                t.all[i].respFirstLine = firstLine
+                if hg.reqFlag == 2{
+                    fmt.Println("*********************I got it *****************")
+                    t.Save(&t.all[i])
+                }
+         } //if timestramp
+
+    }//for
+
+}
+
+func (t * tcpStream)Save(hg * httpGroup){
+
+        req := hg.req
+        resp := hg.resp
+        if (req == nil || resp == nil){
+            return
+        }
+        id := InsertRequestData(db,&RequestTable{FirstLine:hg.reqFirstLine,
+              Host:req.Host,
+              RequestURI:req.RequestURI,
+              SrcIp:t.client.srcip,SrcPort:t.client.srcport,
+              DstIp:t.client.dstip,DstPort:t.client.dstport})
+        // type 1 is request, 2 is response
+        HeaderToDB(req.Header,1,id)
+
+		reqdb := FindRequestFirst(db,t.server.srcip,t.server.srcport,t.server.dstip,t.server.dstport)
+
+		respid := InsertResponseData(db,&ResponseTable{FirstLine:hg.respFirstLine,
+              StatusCode:resp.StatusCode,
+              SrcIp:t.server.srcip,SrcPort:t.server.srcport,
+              DstIp:t.server.dstip,DstPort:t.server.dstport},&reqdb)
+
+            // type 1 is request, 2 is response	
+         HeaderToDB(resp.Header,2,respid)
+
 
 }
 
@@ -633,12 +694,6 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 
 	*start,isReq = detectHttp(tcp.Payload)
 
-    if *start {
-
-        ts := fmt.Sprintf("%v",ci.Timestamp.UnixNano())
-        fmt.Println(tcp.Seq,dir,ts ,isReq)
-        t.NewhttpGroup(isReq,ci.Timestamp.UnixNano())
-    }
 
 	if !t.tcpstate.CheckState(tcp, dir) {
 		Error("FSM", "%s: Packet rejected by FSM (state:%s)\n", t.ident, t.tcpstate.String())
@@ -685,6 +740,13 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 	if !accept {
 		stats.rejectOpt++
 	}
+
+    if *start {
+        ts := fmt.Sprintf("%v",ci.Timestamp.UnixNano())
+        fmt.Println(tcp.Seq,dir,ts ,isReq)
+        t.NewhttpGroup(isReq,ci.Timestamp.UnixNano())
+    }
+
 	return accept
 }
 
@@ -740,14 +802,12 @@ func (t *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 			}
 
             ok,_:=detectHttp(data)
-            if ok{
-                fmt.Println(timeStamp)
-            }
+
 			//if dir == reassembly.TCPDirClientToServer && !t.reversed {
-			if !t.reversed {
+			if dir == reassembly.TCPDirClientToServer {
 				t.client.bytes <- data
 				if ok {
-                    //t.client.timeStamp <- timeStamp
+                    t.client.timeStamp <- timeStamp
                 }
 			} else {
 				t.server.bytes <- data
