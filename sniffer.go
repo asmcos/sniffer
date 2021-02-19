@@ -117,18 +117,32 @@ const timeout time.Duration = time.Minute * 5     // Pending bytes: TODO: from C
  * HTTP part
  */
 
+type httpGroup struct {
+    req          *http.Request
+    reqFirstLine string
+    reqTimeStamp int64
+    reqFlag      int //0=new,1=found,2=finish
+
+    resp          *http.Response
+    respFirstLine string
+    respTimeStamp int64
+    respFlag      int //0=new,1=found,2=finish
+}
+
+
 type httpReader struct {
-	ident    string
-	isClient bool
-	bytes    chan []byte
-	data     []byte
-	hexdump  bool
-	parent   *tcpStream
-	logbuf   string
-	srcip    string
-	dstip    string
-	srcport  string
-	dstport  string
+	ident     string
+	isClient  bool
+	bytes     chan []byte
+    timeStamp chan int64
+	data      []byte
+	hexdump   bool
+	parent    *tcpStream
+	logbuf    string
+	srcip     string
+	dstip     string
+	srcport   string
+	dstport   string
 }
 
 func (h *httpReader) Read(p []byte) (int, error) {
@@ -247,19 +261,19 @@ func printResponse(resp *http.Response)string{
 
 
 
-func detectHttp(data []byte) bool {
+func detectHttp(data []byte) (bool ,int){
 
 	ishttp,_ := isResponse(data)
 	if ishttp{
-		return true
+		return true,0
 	}
 
 	ishttp,_ = isRequest(data)
 	if ishttp{
-		return true
+		return true,1 //request
 	}
 
-	return false
+	return false,2
 }
 
 
@@ -491,6 +505,7 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 	if stream.isHTTP {
 		stream.client = httpReader{
 			bytes:    make(chan []byte),
+			timeStamp:   make(chan int64),
 			ident:    fmt.Sprintf("%s %s", net, transport),
 			hexdump:  *hexdump,
 			parent:   stream,
@@ -502,6 +517,7 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 		}
 		stream.server = httpReader{
 			bytes:   make(chan []byte),
+			timeStamp:   make(chan int64),
 			ident:   fmt.Sprintf("%s %s", net.Reverse(), transport.Reverse()),
 			hexdump: *hexdump,
 			parent:  stream,
@@ -549,18 +565,74 @@ type tcpStream struct {
 	server         httpReader
 	urls           []string
 	ident          string
+    all            []httpGroup
 	sync.Mutex
+}
+
+//req = 1 is request
+//req = 0 is response
+
+func (t * tcpStream) NewhttpGroup(req int,timestamp int64) {
+
+
+    for _, hg := range  t.all {
+           //exist same req
+            if hg.reqTimeStamp == timestamp||hg.respTimeStamp == timestamp{
+                fmt.Println("Have same ",req,timestamp)
+                return
+            }
+
+    }
+
+
+    if req == 1 {
+        //try find response 
+        for _, hg := range  t.all {
+            if hg.respFlag > 0 && hg.reqFlag == 0{
+                hg.respFlag = 1
+                hg.respTimeStamp = timestamp
+                return
+            }
+        }
+
+        hg := httpGroup{
+            reqFlag : 1,
+            reqTimeStamp : timestamp,
+            respFlag : 0,
+        }
+        t.all = append(t.all,hg)
+
+    } else {
+        //try find request
+        for _, hg := range  t.all {
+            if hg.reqFlag > 0 && hg.respFlag == 0{
+                hg.respFlag = 1
+                hg.respTimeStamp = timestamp
+                return
+            }
+        }
+        hg := httpGroup{
+            respFlag :1,
+            respTimeStamp :timestamp,
+            reqFlag :0,
+        }
+        t.all = append(t.all,hg)
+
+    }
+
 }
 
 func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassembly.TCPFlowDirection, nextSeq reassembly.Sequence, start *bool, ac reassembly.AssemblerContext) bool {
 	// FSM
 
+    var isReq int
 
-	*start = detectHttp(tcp.Payload)
+	*start,isReq = detectHttp(tcp.Payload)
 
     if *start {
 
-        fmt.Println(tcp.Seq,dir,ci.Timestamp)
+        ts := fmt.Sprintf("%v",ci.Timestamp.UnixNano())
+        fmt.Println(tcp.Seq,dir,ts ,isReq)
 
     }
 
@@ -654,12 +726,19 @@ func (t *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 		// Missing bytes in stream: do not even try to parse it
 		return
 	}
+
+    timeStamp :=sg.CaptureInfo(0).Timestamp.UnixNano()
 	data := sg.Fetch(length)
     if t.isHTTP {
 		if length > 0 {
 			if *hexdump {
 				Debug("Feeding http with:\n%s", hex.Dump(data))
 			}
+
+            ok,_:=detectHttp(data)
+            if ok{
+                fmt.Println(timeStamp)
+            }
 			//if dir == reassembly.TCPDirClientToServer && !t.reversed {
 			if !t.reversed {
 				t.client.bytes <- data
