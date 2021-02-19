@@ -570,6 +570,7 @@ type tcpStream struct {
 	urls           []string
 	ident          string
     all            []httpGroup
+    hg             sync.Mutex
 	sync.Mutex
 }
 
@@ -578,11 +579,12 @@ type tcpStream struct {
 
 func (t * tcpStream) NewhttpGroup(req int,timestamp int64) {
 
-
+    t.hg.Lock()
     for _, hg := range  t.all {
            //exist same req
             if hg.reqTimeStamp == timestamp||hg.respTimeStamp == timestamp{
                 fmt.Println("Have same ",req,timestamp)
+                t.hg.Unlock()
                 return
             }
 
@@ -594,6 +596,7 @@ func (t * tcpStream) NewhttpGroup(req int,timestamp int64) {
             if hg.respFlag > 0 && hg.reqFlag == 0{
                 t.all[i].respFlag = 1
                 t.all[i].respTimeStamp = timestamp
+                t.hg.Unlock()
                 return
             }
         }
@@ -604,6 +607,7 @@ func (t * tcpStream) NewhttpGroup(req int,timestamp int64) {
             respFlag : 0,
         }
         t.all = append(t.all,hg)
+        t.hg.Unlock()
 
     } else {
         //try find request
@@ -611,6 +615,7 @@ func (t * tcpStream) NewhttpGroup(req int,timestamp int64) {
             if hg.reqFlag > 0 && hg.respFlag == 0{
                 t.all[i].respFlag = 1
                 t.all[i].respTimeStamp = timestamp
+                t.hg.Unlock()
                 return
             }
         }
@@ -620,43 +625,48 @@ func (t * tcpStream) NewhttpGroup(req int,timestamp int64) {
             reqFlag :0,
         }
         t.all = append(t.all,hg)
+        t.hg.Unlock()
     }
 
 }
 
 func (t * tcpStream) UpdateReq(req * http.Request,timestamp int64,firstLine string) {
 
+    t.hg.Lock()
     for i, hg := range  t.all {
          if hg.reqTimeStamp == timestamp {
                 t.all[i].req = req
                 t.all[i].reqFlag = 2
                 t.all[i].reqFirstLine = firstLine
                 if hg.respFlag == 2{
-                    fmt.Println("*********************I got it *****************")
                     t.Save(&t.all[i])
+                    t.all = append(t.all[:i],t.all[i+i:]...)
                 }
          } //if timestramp
 
     }//for
 
+    t.hg.Unlock()
 }
 
 func (t * tcpStream) UpdateResp(resp * http.Response,timestamp int64,firstLine string) {
 
 
+    t.hg.Lock()
     for i, hg := range  t.all {
          if hg.respTimeStamp == timestamp {
                 t.all[i].resp = resp
                 t.all[i].respFlag = 2
                 t.all[i].respFirstLine = firstLine
                 if hg.reqFlag == 2{
-                    fmt.Println("*********************I got it *****************")
                     t.Save(&t.all[i])
+                    t.all = append(t.all[:i],t.all[i+i:]...)
                 }
          } //if timestramp
 
     }//for
 
+    t.hg.Unlock()
 }
 
 func (t * tcpStream)Save(hg * httpGroup){
