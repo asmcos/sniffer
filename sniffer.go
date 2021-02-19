@@ -287,16 +287,14 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 			if err == nil{
 				h.logbuf += printResponse(res)
 			}
-
 	        h.Print()
 			h.logbuf = ""
 
-            select {
-                //wait request message
-            case <-h.parent.reqmsg:
-                if true {}
-            case <-time.After(5 * time.Minute):
-                fmt.Println("Not found request")
+
+
+
+            if res == nil{
+                continue
             }
 			req := FindRequestFirst(db,h.srcip,h.srcport,h.dstip,h.dstport)
 
@@ -401,27 +399,14 @@ func (hreq * httpRequest) HandleRequest () {
         // type 1 is request, 2 is response
         HeaderToDB(req.Header,1,id)
 
-        select {
-            //write reqmsg to response 
-            case hreq.parent.parent.reqmsg <- 1 :
-                if true {}
-            case <-time.After(5 * time.Minute):
-                fmt.Println("Not found response")
-        }
-
 	}
 
 	//wait read all packet
 	for{
-        select {
-        case <-time.After(time.Nanosecond):
-		    _,err = hreq.Read(p)
-		    if err == io.EOF{
-			    return
-		    }
-        case <-time.After(5 * time.Minute):
-            return
-        }
+	    _,err = hreq.Read(p)
+	    if err == io.EOF{
+			return
+		}
 	}
 
 }
@@ -497,13 +482,11 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 	stream := &tcpStream{
 		net:        net,
 		transport:  transport,
-		isDNS:      tcp.SrcPort == 53 || tcp.DstPort == 53,
 		isHTTP:     (tcp.SrcPort == layers.TCPPort(*port) || tcp.DstPort == layers.TCPPort(*port)) && factory.doHTTP,
 		reversed:   tcp.SrcPort == layers.TCPPort(*port),
 		tcpstate:   reassembly.NewTCPSimpleFSM(fsmOptions),
 		ident:      fmt.Sprintf("%s:%s", net, transport),
 		optchecker: reassembly.NewTCPOptionCheck(),
-        reqmsg: make(chan int),
 	}
 	if stream.isHTTP {
 		stream.client = httpReader{
@@ -560,7 +543,6 @@ type tcpStream struct {
 	fsmerr         bool
 	optchecker     reassembly.TCPOptionCheck
 	net, transport gopacket.Flow
-	isDNS          bool
 	isHTTP         bool
 	reversed       bool
 	client         httpReader
@@ -568,7 +550,6 @@ type tcpStream struct {
 	urls           []string
 	ident          string
 	sync.Mutex
-    reqmsg            chan int
 }
 
 func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassembly.TCPFlowDirection, nextSeq reassembly.Sequence, start *bool, ac reassembly.AssemblerContext) bool {
@@ -576,6 +557,12 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 
 
 	*start = detectHttp(tcp.Payload)
+
+    if *start {
+
+        fmt.Println(tcp.Seq,dir,ci.Timestamp)
+
+    }
 
 	if !t.tcpstate.CheckState(tcp, dir) {
 		Error("FSM", "%s: Packet rejected by FSM (state:%s)\n", t.ident, t.tcpstate.String())
@@ -673,7 +660,8 @@ func (t *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 			if *hexdump {
 				Debug("Feeding http with:\n%s", hex.Dump(data))
 			}
-			if dir == reassembly.TCPDirClientToServer && !t.reversed {
+			//if dir == reassembly.TCPDirClientToServer && !t.reversed {
+			if !t.reversed {
 				t.client.bytes <- data
 			} else {
 				t.server.bytes <- data
