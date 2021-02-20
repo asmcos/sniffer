@@ -259,7 +259,8 @@ func printResponse(resp *http.Response)string{
 	return logbuf
 }
 
-
+// 0 = response
+// 1 = request
 
 func detectHttp(data []byte) (bool ,int){
 
@@ -277,8 +278,7 @@ func detectHttp(data []byte) (bool ,int){
 }
 
 
-
-
+// response
 func (h *httpReader) runServer(wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -760,8 +760,6 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 	}
 
     if *start {
-        ts := fmt.Sprintf("%v",ci.Timestamp.UnixNano())
-        fmt.Println(tcp.Seq,dir,ts ,isReq)
         t.NewhttpGroup(isReq,ci.Timestamp.UnixNano())
     }
 
