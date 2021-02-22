@@ -293,7 +293,7 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 		if(isResp){
             timeStamp := <-h.timeStamp
 			h.logbuf += fmt.Sprintf("%v->%v:%v->%v\n",h.srcip,h.dstip,h.srcport,h.dstport)
-			h.logbuf += fmt.Sprintf("%s\n",firstLine)
+			//h.logbuf += fmt.Sprintf("%s\n",firstLine)
 
 			buf := bytes.NewBuffer(p)
 			b := bufio.NewReader(buf)
@@ -310,17 +310,6 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
             if res == nil{
                 continue
             }
-/*
-			req := FindRequestFirst(db,h.srcip,h.srcport,h.dstip,h.dstport)
-
-			id := InsertResponseData(db,&ResponseTable{FirstLine:firstLine,
-              StatusCode:res.StatusCode,
-              SrcIp:h.srcip,SrcPort:h.srcport,
-              DstIp:h.dstip,DstPort:h.dstport},&req)
-
-            // type 1 is request, 2 is response	
-            HeaderToDB(res.Header,2,id)
-*/
 		}
 
 	}
@@ -407,15 +396,6 @@ func (hreq * httpRequest) HandleRequest (timeStamp int64) {
 		}
 
 	   fmt.Printf("%s",logbuf)
-/*
-	   id := InsertRequestData(db,&RequestTable{FirstLine:hreq.firstline,
-              Host:req.Host,
-              RequestURI:req.RequestURI,
-              SrcIp:hreq.parent.srcip,SrcPort:hreq.parent.srcport,
-              DstIp:hreq.parent.dstip,DstPort:hreq.parent.dstport})
-        // type 1 is request, 2 is response
-        HeaderToDB(req.Header,1,id)
-*/
 	}
 
 	//wait read all packet
@@ -449,7 +429,6 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 			isReq,firstLine := isRequest(p)
 			if(isReq){ //start new request
                 timeStamp := <-h.timeStamp
-				log.Println(firstLine)
 
 				if req.start { //如果存在正在处理的request，给request发结束通知，开始处理新的request 
 					close(req.bytes)
@@ -538,7 +517,6 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 }
 
 func (factory *tcpStreamFactory) WaitGoRoutines() {
-    log.Println("wait....")
 	factory.wg.Wait()
 }
 
@@ -759,6 +737,7 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 		stats.rejectOpt++
 	}
 
+    // create new httpgroup,wait request+response
     if *start {
         t.NewhttpGroup(isReq,ci.Timestamp.UnixNano())
     }
@@ -809,6 +788,7 @@ func (t *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 		return
 	}
 
+    //use timeStamp as match flag
     timeStamp :=sg.CaptureInfo(0).Timestamp.UnixNano()
 	data := sg.Fetch(length)
     if t.isHTTP {
@@ -984,7 +964,6 @@ func main() {
 				CaptureInfo: packet.Metadata().CaptureInfo,
 			}
 			stats.totalsz += len(tcp.Payload)
-
 
 			assembler.AssembleWithContext(packet.NetworkLayer().NetworkFlow(), tcp, &c)
 		}
