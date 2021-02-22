@@ -28,5 +28,7 @@ make
 # run
 
 ```
-nohup ./httpdump -i eth0 &
+nohup ./sniffer -i eth0 &
 ```
+
+
