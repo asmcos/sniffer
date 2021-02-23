@@ -192,7 +192,7 @@ func Debug(s string, a ...interface{}) {
 	}
 }
 
-func (h *httpRequest) DecompressBody(header http.Header, reader io.ReadCloser) (io.ReadCloser, bool) {
+func (h *httpParser) DecompressBody(header http.Header, reader io.ReadCloser) (io.ReadCloser, bool) {
 	contentEncoding := header.Get("Content-Encoding")
 	var nr io.ReadCloser
 	var err error
@@ -332,7 +332,7 @@ func isRequest(data []byte) (bool,string) {
     }
 }
 
-type httpRequest struct {
+type httpParser struct {
     bytes    chan []byte
     done     chan bool
 	data     []byte
@@ -342,7 +342,7 @@ type httpRequest struct {
 }
 
 
-func (h *httpRequest) Read(p []byte) (int, error) {
+func (h *httpParser) Read(p []byte) (int, error) {
 	ok := true
 	for ok && len(h.data) == 0 {
 		h.data, ok = <-h.bytes
@@ -359,7 +359,7 @@ func (h *httpRequest) Read(p []byte) (int, error) {
 
 
 
-func (hreq * httpRequest) HandleRequest (timeStamp int64) {
+func (hreq * httpParser) HandleRequest (timeStamp int64) {
 
 	var p  = make([]byte,1900)
 	b := bufio.NewReader(hreq)
@@ -412,7 +412,7 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	var p  = make([]byte,1900)
-	var req = httpRequest{
+	var req = httpParser{
 			bytes:   make(chan []byte),
 			done:   make(chan bool),
 			start:   false,
@@ -436,7 +436,7 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 				}
 
 				//start new request parse
-				req = httpRequest{
+				req = httpParser{
 						bytes:   make(chan []byte),
 						done:   make(chan bool),
 						start:   true,
