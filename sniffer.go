@@ -192,43 +192,6 @@ func Debug(s string, a ...interface{}) {
 	}
 }
 
-func (h *httpParser) DecompressBody(header http.Header, reader io.ReadCloser) (io.ReadCloser, bool) {
-	contentEncoding := header.Get("Content-Encoding")
-	var nr io.ReadCloser
-	var err error
-	if contentEncoding == "" {
-		// do nothing
-		return reader, false
-	} else if strings.Contains(contentEncoding, "gzip") {
-		nr, err = gzip.NewReader(reader)
-		if err != nil {
-			return reader, false
-		}
-		return nr, true
-	} else if strings.Contains(contentEncoding, "deflate") {
-		nr, err = zlib.NewReader(reader)
-		if err != nil {
-			return reader, false
-		}
-		return nr, true
-	} else {
-		return reader, false
-	}
-}
-
-
-
-
-//server to client
-func  isResponse(data []byte) (bool,string) {
-    buf := bytes.NewBuffer(data)
-    reader := bufio.NewReader(buf)
-    tp := textproto.NewReader(reader)
-
-    firstLine, _ := tp.ReadLine()
-    return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),firstLine
-}
-
 
 func printHeader(h http.Header)string{
 	var logbuf string
@@ -259,6 +222,39 @@ func printResponse(resp *http.Response)string{
 	return logbuf
 }
 
+// detect http infomation
+// isRequest isResponse
+
+func isRequest(data []byte) (bool,string) {
+    buf := bytes.NewBuffer(data)
+    reader := bufio.NewReader(buf)
+    tp := textproto.NewReader(reader)
+
+    firstLine, _ := tp.ReadLine()
+    arr := strings.Split(firstLine, " ")
+
+    switch strings.TrimSpace(arr[0]) {
+    case "GET", "HEAD", "POST", "PUT", "DELETE", "TRACE", "CONNECT":
+        return true,firstLine
+    default:
+        return false,firstLine
+    }
+}
+
+
+//server to client
+func  isResponse(data []byte) (bool,string) {
+    buf := bytes.NewBuffer(data)
+    reader := bufio.NewReader(buf)
+    tp := textproto.NewReader(reader)
+
+    firstLine, _ := tp.ReadLine()
+    return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),firstLine
+}
+
+
+
+
 // 0 = response
 // 1 = request
 
@@ -277,60 +273,6 @@ func detectHttp(data []byte) (bool ,int){
 	return false,2
 }
 
-
-// response
-func (h *httpReader) runServer(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	var p  = make([]byte,1900)
-
-	for ;;{
-		_,err := h.Read(p)
-		if (err == io.EOF){
-			return
-		}
-		isResp,firstLine:= isResponse(p)
-		if(isResp){
-            timeStamp := <-h.timeStamp
-			h.logbuf += fmt.Sprintf("%v->%v:%v->%v\n",h.srcip,h.dstip,h.srcport,h.dstport)
-			//h.logbuf += fmt.Sprintf("%s\n",firstLine)
-
-			buf := bytes.NewBuffer(p)
-			b := bufio.NewReader(buf)
-			res, err := http.ReadResponse(b, nil)
-			if err == nil{
-				h.logbuf += printResponse(res)
-			}
-	        h.Print()
-			h.logbuf = ""
-
-
-            h.parent.UpdateResp(res,timeStamp,firstLine)
-
-            if res == nil{
-                continue
-            }
-		}
-
-	}
-
-}
-
-func isRequest(data []byte) (bool,string) {
-    buf := bytes.NewBuffer(data)
-    reader := bufio.NewReader(buf)
-    tp := textproto.NewReader(reader)
-
-    firstLine, _ := tp.ReadLine()
-    arr := strings.Split(firstLine, " ")
-
-    switch strings.TrimSpace(arr[0]) {
-    case "GET", "HEAD", "POST", "PUT", "DELETE", "TRACE", "CONNECT":
-        return true,firstLine
-    default:
-        return false,firstLine
-    }
-}
 
 type httpParser struct {
     bytes    chan []byte
@@ -356,6 +298,33 @@ func (h *httpParser) Read(p []byte) (int, error) {
 	h.data = h.data[l:]
 	return l, nil
 }
+
+func (h *httpParser) DecompressBody(header http.Header, reader io.ReadCloser) (io.ReadCloser, bool) {
+	contentEncoding := header.Get("Content-Encoding")
+	var nr io.ReadCloser
+	var err error
+	if contentEncoding == "" {
+		// do nothing
+		return reader, false
+	} else if strings.Contains(contentEncoding, "gzip") {
+		nr, err = gzip.NewReader(reader)
+		if err != nil {
+			return reader, false
+		}
+		return nr, true
+	} else if strings.Contains(contentEncoding, "deflate") {
+		nr, err = zlib.NewReader(reader)
+		if err != nil {
+			return reader, false
+		}
+		return nr, true
+	} else {
+		return reader, false
+	}
+}
+
+
+
 
 
 
@@ -457,6 +426,112 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 	}
 
 }
+
+func (hreq * httpParser) HandleResponse (timeStamp int64) {
+
+	var p  = make([]byte,1900)
+
+    b := bufio.NewReader(hreq)
+
+    resp, err := http.ReadResponse(b, nil)
+    hreq.parent.parent.UpdateResp(resp,timeStamp,hreq.firstline)
+
+    if err == io.EOF || err == io.ErrUnexpectedEOF {
+        return
+    } else if err != nil {
+        Error("HTTP-reponse", "HTTP Response error: %s (%v,%+v)\n", err, err, err)
+
+    } else {
+
+        r,ok := hreq.DecompressBody(resp.Header,resp.Body)
+		if ok {
+			defer r.Close()
+		}
+		contentType := resp.Header.Get("Content-Type")
+		logbuf := fmt.Sprintf("%v->%v:%v->%v\n",hreq.parent.srcip,hreq.parent.dstip,hreq.parent.srcport,hreq.parent.dstport)
+		logbuf += printResponse(resp)
+
+		if strings.Contains(contentType,"application/json"){
+
+			bodydata, err := ioutil.ReadAll(r)
+			if err == nil {
+				var jsonValue interface{}
+				err = json.Unmarshal([]byte(bodydata), &jsonValue)
+				if err == nil {
+					logbuf += fmt.Sprintf("%#v\n",jsonValue)
+				}
+			}
+		}
+
+	   fmt.Printf("%s",logbuf)
+	}
+
+	//wait read all packet
+	for{
+	    _,err = hreq.Read(p)
+	    if err == io.EOF{
+			return
+		}
+	}
+
+}
+
+
+
+// response
+func (h *httpReader) runServer(wg *sync.WaitGroup) {
+    defer wg.Done()
+
+	var p  = make([]byte,1900)
+
+    var resp = httpParser{
+            bytes:   make(chan []byte),
+            done:    make(chan bool),
+            start:   false,
+            parent:  h,
+    }
+
+    for {
+
+        l,err := h.Read(p)
+        if (err == io.EOF){
+            return
+        }
+        if( l > 8 ){
+            isResp,firstLine := isResponse(p)
+            if(isResp){ //start new response
+                timeStamp := <-h.timeStamp
+
+                if resp.start { //如果存在正在处理的response，给resp发结束通知，开始处理新的response
+                    close(resp.bytes)
+                    <-resp.done //wait response parse done
+                }
+
+                //start new response parse
+                resp = httpParser{
+                        bytes:   make(chan []byte),
+                        done:    make(chan bool),
+                        start:   true,
+                        parent: h,
+                        firstline:firstLine,
+                }
+                go resp.HandleResponse(timeStamp)
+
+                resp.bytes <- p[:l]
+
+            } else if resp.start{ //other data
+
+                resp.bytes <- p[:l]
+            }
+        } else if resp.start {
+            resp.bytes <- p[:l]
+        }
+    }
+
+
+
+}
+
 
 
 /*
