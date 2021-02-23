@@ -70,8 +70,8 @@ var hexdumppkt = flag.Bool("dumppkt", false, "Dump packet as hex")
 var djslen = flag.Int("dumpjs",0,"Display response javascript format length")
 var dhtmllen = flag.Int("dumphtml",0,"Display response html format length")
 
-var dunknownstr = flag.String("dumpstr","text/plain","Display response ContentType,e.g. text/html")
-var dunknownlen = flag.Int("dumpunknown",0,"Display response dumpstr format length")
+var danystr = flag.String("dumpanystr","text/plain","Display response ContentType,e.g. text/html")
+var danylen = flag.Int("dumpanylen",0,"Display response dumpanystr format length")
 
 // capture
 var iface = flag.String("i", "eth0", "Interface to read packets from")
@@ -489,16 +489,16 @@ func (hreq * httpParser) HandleResponse (timeStamp int64) {
 
                 logbuf += fmt.Sprintf("%s\n",string(bodydata[:*dhtmllen]))
             }
-		} else if strings.Contains(contentType,*dunknownstr){
+		} else if strings.Contains(contentType,*danystr){ //default text/plain
             bodydata, err := ioutil.ReadAll(r)
             bodylen := len(bodydata)
 
-            if bodylen < *dunknownlen{
-                *dunknownlen = bodylen
+            if bodylen < *danylen{
+                *danylen = bodylen
             }
             if err == nil {
 
-                logbuf += fmt.Sprintf("%s\n",string(bodydata[:*dunknownlen]))
+                logbuf += fmt.Sprintf("%s\n",string(bodydata[:*danylen]))
             }
         }
 
