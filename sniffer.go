@@ -67,6 +67,10 @@ var writeincomplete = flag.Bool("writeincomplete", false, "Write incomplete resp
 var hexdump = flag.Bool("dump", false, "Dump HTTP request/response as hex")
 var hexdumppkt = flag.Bool("dumppkt", false, "Dump packet as hex")
 
+var djslen = flag.Int("dumpjs",0,"Display response javascript format length")
+var dhtmllen = flag.Int("dumphtml",0,"Display response html format length")
+
+
 // capture
 var iface = flag.String("i", "eth0", "Interface to read packets from")
 var port = flag.Int("p", 80, "Interface to read packets from")
@@ -461,7 +465,30 @@ func (hreq * httpParser) HandleResponse (timeStamp int64) {
 					logbuf += fmt.Sprintf("%#v\n",jsonValue)
 				}
 			}
-		}
+		} else if strings.Contains(contentType,"application/javascript"){
+            bodydata, err := ioutil.ReadAll(r)
+            bodylen := len(bodydata)
+
+            if bodylen < *djslen{
+                *djslen = bodylen
+            }
+            if err == nil {
+
+                logbuf += fmt.Sprintf("%s\n",string(bodydata[:*djslen]))
+            }
+		} else if strings.Contains(contentType,"text/html"){
+            bodydata, err := ioutil.ReadAll(r)
+            bodylen := len(bodydata)
+
+            if bodylen < *dhtmllen{
+                *dhtmllen = bodylen
+            }
+            if err == nil {
+
+                logbuf += fmt.Sprintf("%s\n",string(bodydata[:*dhtmllen]))
+            }
+        }
+
 
 	   fmt.Printf("%s",logbuf)
 	}
