@@ -1,0 +1,14 @@
+{
+  "name": "sniffer",
+  "device": "en0",
+  "port":80,
+
+  "NOTE1":"jslenght 是指javascript response协议里，用来调试 显示的长度",
+  "jslength":100,
+  "htmllength":0,
+
+  "dumpanystr":"text/plain",
+  "dumpanylen":0
+
+}
+

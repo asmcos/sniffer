@@ -954,6 +954,9 @@ func main() {
 	}
 	log.SetOutput(os.Stdout)
 	errorsMap = make(map[string]uint)
+
+    loadConfig()
+
 	if *fname != "" {
 		if handle, err = pcap.OpenOffline(*fname); err != nil {
 			log.Fatal("PCAP OpenOffline error:", err)
