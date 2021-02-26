@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"net/textproto"
 	"os"
 	"os/signal"
@@ -208,13 +209,32 @@ func printHeader(h http.Header)string{
 	return logbuf
 }
 
+// url.Values map[string][]string
+
+func printForm(v url.Values)string{
+    var logbuf string
+
+    logbuf += fmt.Sprint("\n**************\n")
+    for k,data := range v{
+        logbuf += fmt.Sprint(k,":")
+        for _,d := range data{
+            logbuf += fmt.Sprintf("%s",d)
+        }
+        logbuf += "\n"
+    }
+    logbuf += fmt.Sprint("**************\n")
+
+    return logbuf
+}
+
 func printRequest(req *http.Request)string{
 
     logbuf := fmt.Sprintf("\n")
     logbuf += fmt.Sprintf("%s\n",req.Host)
     logbuf += fmt.Sprintf("%s %s %s \n",req.Method, req.RequestURI, req.Proto)
     logbuf += printHeader(req.Header)
-
+    logbuf += printForm(req.Form)
+    logbuf += printForm(req.PostForm)
     logbuf += fmt.Sprintf("\n")
 	return logbuf
 }

@@ -41,7 +41,7 @@ func loadConfig(){
         return
     }
 
-    log.Println(configData)
+    log.Println("Load config file :sniffer.json success!\n")
 
     *iface    = configData["device"].(string)
     *port     = int(configData["port"].(float64))
