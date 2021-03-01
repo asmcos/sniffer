@@ -46,6 +46,16 @@ type HeaderTable struct{
     Values      string
 }
 
+type FormTable struct{
+    gorm.Model
+    Type       uint // 1.request header ,2. Response
+    Parentid   uint // requestTable or responstTable ID
+    Name        string
+    Values      string
+}
+
+
+
 type returnReqs struct{
     Reqs   []RequestTable;
     Total  int;
@@ -57,7 +67,10 @@ func InitDB()(newdb *gorm.DB) {
 
 		//newdb.LogMode(true)
 
-        newdb.AutoMigrate(&RequestTable{},&ResponseTable{},&HeaderTable{})
+        newdb.AutoMigrate(&RequestTable{},
+            &ResponseTable{},
+            &HeaderTable{},
+            &FormTable{})
 
         return newdb
 }
@@ -66,6 +79,13 @@ func InsertHeaders(db *gorm.DB,n string,v string,t uint,id uint){
 
     db.Create(&HeaderTable{Type:t,Parentid:id,Name:n,Values:v})
 }
+
+func InsertForm(db *gorm.DB,n string,v string,t uint,id uint){
+
+    db.Create(&FormTable{Type:t,Parentid:id,Name:n,Values:v})
+}
+
+
 
 // insert a request record
 func InsertRequestData(db * gorm.DB,req *RequestTable ) (id uint){
@@ -148,10 +168,12 @@ func FindRequestById(db * gorm.DB,id int)(map[string]interface{}){
     var req RequestTable;
     var resp ResponseTable;
     var reqH,respH []HeaderTable;
+    var reqForm []FormTable;
 
     returnJson := make(map[string]interface{})
     respJson := make(map[string]interface{})
     reqHJson := make([]map[string]interface{},50)
+    reqFJson := make([]map[string]interface{},100)
     respHJson := make([]map[string]interface{},50)
 
     db.First(&req,id)
@@ -174,6 +196,13 @@ func FindRequestById(db * gorm.DB,id int)(map[string]interface{}){
     inreqh, _ := json.Marshal(&reqH)
     json.Unmarshal(inreqh, &reqHJson)
     returnJson["reqh"] = reqHJson
+
+    // get request Form 
+    db.Where("parentid=? and type=1",req.ID).Find(&reqForm)
+    // converting to map
+    inreqform, _ := json.Marshal(&reqForm)
+    json.Unmarshal(inreqform, &reqFJson)
+    returnJson["reqform"] = reqFJson
 
 
     // get response Header

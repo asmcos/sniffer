@@ -89,6 +89,8 @@ const (
 )
 
 var db *gorm.DB
+
+// t is type 1:request,2:response
 func HeaderToDB(h http.Header,t uint,id uint){
 
 
@@ -98,6 +100,17 @@ func HeaderToDB(h http.Header,t uint,id uint){
         InsertHeaders(db,n ,val ,t ,id )
     }
 }
+
+func FormToDB(val url.Values,t uint,id uint){
+
+
+    for n,v :=range val{
+        content := strings.Join(v,", ")
+
+        InsertForm(db,n ,content ,t ,id )
+    }
+}
+
 
 var stats struct {
 	ipdefrag            int
@@ -235,6 +248,9 @@ func printRequest(req *http.Request)string{
     logbuf += printHeader(req.Header)
     logbuf += printForm(req.Form)
     logbuf += printForm(req.PostForm)
+    if req.MultipartForm != nil {
+        logbuf += printForm(url.Values(req.MultipartForm.Value))
+    }
     logbuf += fmt.Sprintf("\n")
 	return logbuf
 }
@@ -791,6 +807,8 @@ func (t * tcpStream) UpdateResp(resp * http.Response,timestamp int64,firstLine s
     t.hg.Unlock()
 }
 
+
+// save to database
 func (t * tcpStream)Save(hg * httpGroup){
 
         req := hg.req
@@ -805,6 +823,13 @@ func (t * tcpStream)Save(hg * httpGroup){
               DstIp:t.client.dstip,DstPort:t.client.dstport})
         // type 1 is request, 2 is response
         HeaderToDB(req.Header,1,id)
+
+        FormToDB(req.Form,1,id)
+        FormToDB(req.PostForm,1,id)
+        if req.MultipartForm != nil {
+            FormToDB(url.Values(req.MultipartForm.Value),1,id)
+        }
+
 
 		reqdb := FindRequestFirst(db,t.server.srcip,t.server.srcport,t.server.dstip,t.server.dstport)
 
