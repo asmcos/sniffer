@@ -45,6 +45,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
+    _ "net/http/pprof"
 )
 
 var maxcount = flag.Int("c", -1, "Only grab this many packets, then exit")
@@ -130,8 +131,9 @@ var stats struct {
 	overlapPackets      int
 }
 
-const closeTimeout time.Duration = time.Hour * 24 // Closing inactive: TODO: from CLI
-const timeout time.Duration = time.Minute * 5     // Pending bytes: TODO: from CLI
+//const closeTimeout time.Duration = time.Hour * 24 // Closing inactive: TODO: from CLI
+const closeTimeout time.Duration = time.Minute * 5 // Closing inactive: TODO: from CLI
+const timeout time.Duration = time.Minute * 3     // Pending bytes: TODO: from CLI
 
 /*
  * HTTP part
@@ -163,6 +165,7 @@ type httpReader struct {
 	dstip     string
 	srcport   string
 	dstport   string
+    httpstart int // 0 = new,1=find, 2 = old and find new
 }
 
 func (h *httpReader) Read(p []byte) (int, error) {
@@ -173,6 +176,28 @@ func (h *httpReader) Read(p []byte) (int, error) {
 	if !ok || len(h.data) == 0 {
 		return 0, io.EOF
 	}
+
+    ishttp,_ := detectHttp(h.data)
+
+    if ishttp {
+        switch h.httpstart {
+            case 0: // run read,only copy 
+                h.httpstart = 1
+	            l := copy(p, h.data)
+                return l,nil
+
+            case 1: //http read
+                h.httpstart = 2
+	            l := copy(p, h.data)
+	            h.data = h.data[l:]
+	            return l, nil
+
+            case 2: //http read
+                h.httpstart = 0
+		        return 0, io.EOF
+        }
+    }
+
 
 	l := copy(p, h.data)
 	h.data = h.data[l:]
@@ -295,8 +320,6 @@ func  isResponse(data []byte) (bool,string) {
 }
 
 
-
-
 // 0 = response
 // 1 = request
 
@@ -316,32 +339,8 @@ func detectHttp(data []byte) (bool ,int){
 }
 
 
-type httpParser struct {
-    bytes    chan []byte
-    done     chan bool
-	data     []byte
-	start    bool
-	parent   *httpReader
-	firstline string
-}
 
-
-func (h *httpParser) Read(p []byte) (int, error) {
-	ok := true
-	for ok && len(h.data) == 0 {
-		h.data, ok = <-h.bytes
-	}
-	if !ok || len(h.data) == 0 {
-		h.done <- true
-		return 0, io.EOF
-	}
-
-	l := copy(p, h.data)
-	h.data = h.data[l:]
-	return l, nil
-}
-
-func (h *httpParser) DecompressBody(header http.Header, reader io.ReadCloser) (io.ReadCloser, bool) {
+func (h *httpReader) DecompressBody(header http.Header, reader io.ReadCloser) (io.ReadCloser, bool) {
 	contentEncoding := header.Get("Content-Encoding")
 	var nr io.ReadCloser
 	var err error
@@ -370,13 +369,13 @@ func (h *httpParser) DecompressBody(header http.Header, reader io.ReadCloser) (i
 
 
 
-func (hreq * httpParser) HandleRequest (timeStamp int64) {
+func (h * httpReader) HandleRequest (timeStamp int64,firstline string) {
 
-	var p  = make([]byte,1900)
-	b := bufio.NewReader(hreq)
+	b := bufio.NewReader(h)
 
     req, err := http.ReadRequest(b)
-    hreq.parent.parent.UpdateReq(req,timeStamp,hreq.firstline)
+    h.parent.UpdateReq(req,timeStamp,firstline)
+
     if err == io.EOF || err == io.ErrUnexpectedEOF {
         return
     } else if err != nil {
@@ -386,12 +385,12 @@ func (hreq * httpParser) HandleRequest (timeStamp int64) {
 
 	    req.ParseMultipartForm(defaultMaxMemory)
 
-        r,ok := hreq.DecompressBody(req.Header,req.Body)
+        r,ok := h.DecompressBody(req.Header,req.Body)
 		if ok {
 			defer r.Close()
 		}
 		contentType := req.Header.Get("Content-Type")
-		logbuf := fmt.Sprintf("%v->%v:%v->%v\n",hreq.parent.srcip,hreq.parent.dstip,hreq.parent.srcport,hreq.parent.dstport)
+		logbuf := fmt.Sprintf("%v->%v:%v->%v\n",h.srcip,h.dstip,h.srcport,h.dstport)
 		logbuf += printRequest(req)
 
 		if strings.Contains(contentType,"application/json"){
@@ -409,29 +408,16 @@ func (hreq * httpParser) HandleRequest (timeStamp int64) {
 	   fmt.Printf("%s",logbuf)
 	}
 
-	//wait read all packet
-	for{
-	    _,err = hreq.Read(p)
-	    if err == io.EOF{
-			return
-		}
-	}
-
 }
 
 func (h *httpReader) runClient(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	var p  = make([]byte,1900)
-	var req = httpParser{
-			bytes:   make(chan []byte),
-			done:   make(chan bool),
-			start:   false,
-			parent:  h,
-	}
 
 	for {
 
+        h.httpstart = 0
 		l,err := h.Read(p)
 		if (err == io.EOF){
 			return
@@ -441,42 +427,20 @@ func (h *httpReader) runClient(wg *sync.WaitGroup) {
 			if(isReq){ //start new request
                 timeStamp := <-h.timeStamp
 
-				if req.start { //如果存在正在处理的request，给request发结束通知，开始处理新的request 
-					close(req.bytes)
-					<-req.done //wait request parse done
-				}
-
-				//start new request parse
-				req = httpParser{
-						bytes:   make(chan []byte),
-						done:   make(chan bool),
-						start:   true,
-						parent: h,
-						firstline:firstLine,
-				}
-				go req.HandleRequest(timeStamp)
-
-				req.bytes <- p[:l]
-
-			} else if req.start{ //other data
-
-				req.bytes <- p[:l]
-			}
-		} else if req.start {
-			req.bytes <- p[:l]
-		}
+			    h.HandleRequest(timeStamp,firstLine)
+		    }
+        }
 	}
 
 }
 
-func (hreq * httpParser) HandleResponse (timeStamp int64) {
+func (h * httpReader) HandleResponse (timeStamp int64,firstline string) {
 
-	var p  = make([]byte,1900)
 
-    b := bufio.NewReader(hreq)
+    b := bufio.NewReader(h)
 
     resp, err := http.ReadResponse(b, nil)
-    hreq.parent.parent.UpdateResp(resp,timeStamp,hreq.firstline)
+    h.parent.UpdateResp(resp,timeStamp,firstline)
 
     if err == io.EOF || err == io.ErrUnexpectedEOF {
         return
@@ -485,12 +449,12 @@ func (hreq * httpParser) HandleResponse (timeStamp int64) {
 
     } else {
 
-        r,ok := hreq.DecompressBody(resp.Header,resp.Body)
+        r,ok := h.DecompressBody(resp.Header,resp.Body)
 		if ok {
 			defer r.Close()
 		}
 		contentType := resp.Header.Get("Content-Type")
-		logbuf := fmt.Sprintf("%v->%v:%v->%v\n",hreq.parent.srcip,hreq.parent.dstip,hreq.parent.srcport,hreq.parent.dstport)
+		logbuf := fmt.Sprintf("%v->%v:%v->%v\n",h.srcip,h.dstip,h.srcport,h.dstport)
 		logbuf += printResponse(resp)
 
 		if strings.Contains(contentType,"application/json"){
@@ -543,13 +507,6 @@ func (hreq * httpParser) HandleResponse (timeStamp int64) {
 	   fmt.Printf("%s",logbuf)
 	}
 
-	//wait read all packet
-	for{
-	    _,err = hreq.Read(p)
-	    if err == io.EOF{
-			return
-		}
-	}
 
 }
 
@@ -561,15 +518,8 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
 
 	var p  = make([]byte,1900)
 
-    var resp = httpParser{
-            bytes:   make(chan []byte),
-            done:    make(chan bool),
-            start:   false,
-            parent:  h,
-    }
-
     for {
-
+        h.httpstart = 0
         l,err := h.Read(p)
         if (err == io.EOF){
             return
@@ -579,29 +529,9 @@ func (h *httpReader) runServer(wg *sync.WaitGroup) {
             if(isResp){ //start new response
                 timeStamp := <-h.timeStamp
 
-                if resp.start { //如果存在正在处理的response，给resp发结束通知，开始处理新的response
-                    close(resp.bytes)
-                    <-resp.done //wait response parse done
-                }
+                h.HandleResponse(timeStamp,firstLine)
 
-                //start new response parse
-                resp = httpParser{
-                        bytes:   make(chan []byte),
-                        done:    make(chan bool),
-                        start:   true,
-                        parent: h,
-                        firstline:firstLine,
-                }
-                go resp.HandleResponse(timeStamp)
-
-                resp.bytes <- p[:l]
-
-            } else if resp.start{ //other data
-
-                resp.bytes <- p[:l]
             }
-        } else if resp.start {
-            resp.bytes <- p[:l]
         }
     }
 
@@ -649,6 +579,7 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 			dstport: fmt.Sprintf("%d",tcp.DstPort),
 			srcip: srcip,
 			dstip: dstip,
+            httpstart:0,
 		}
 		stream.server = httpReader{
 			bytes:   make(chan []byte),
@@ -660,6 +591,7 @@ func (factory *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.T
 			srcport: fmt.Sprintf("%d",tcp.DstPort),
 			dstip: srcip,
 			srcip: dstip,
+            httpstart:0,
 		}
 		factory.wg.Add(2)
 		go stream.client.runClient(&factory.wg)
@@ -1001,6 +933,8 @@ func main() {
 	errorsMap = make(map[string]uint)
 
     loadConfig()
+
+    go http.ListenAndServe("0.0.0.0:8000", nil)
 
 	if *fname != "" {
 		if handle, err = pcap.OpenOffline(*fname); err != nil {
