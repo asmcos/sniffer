@@ -10,7 +10,7 @@ import (
         _ "github.com/jinzhu/gorm/dialects/sqlite"
         _ "fmt"
 )
-
+// http 
 type RequestTable struct {
         gorm.Model
         FirstLine string
@@ -52,6 +52,23 @@ type FormTable struct{
     Parentid   uint // requestTable or responstTable ID
     Name        string
     Values      string
+}
+
+//map http url to connotation
+type urlConno struct{
+    gorm.Model
+    RequestURI string
+    ConnoName  string
+
+}
+
+type FormConno struct{
+    gorm.Model
+    urlConno urlConno `gorm:"foreignkey:urlConnoRefer"`
+    urlConnoRefer int
+    FormName   string
+    ConnoName  string
+    rule       string //regex ne,ge lte
 }
 
 
