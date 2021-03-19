@@ -43,9 +43,10 @@ import (
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/reassembly"
 
-	"github.com/jinzhu/gorm"
+	//"github.com/jinzhu/gorm"
+    "github.com/asmcos/requests"
 
-    _ "net/http/pprof"
+    //_ "net/http/pprof"
 )
 
 var maxcount = flag.Int("c", -1, "Only grab this many packets, then exit")
@@ -84,32 +85,45 @@ var tstype = flag.String("timestamp_type", "", "Type of timestamps to use")
 var promisc = flag.Bool("promisc", true, "Set promiscuous mode")
 
 var memprofile = flag.String("memprofile", "", "Write memory profile")
+var serverurl = flag.String("serverurl", "", "save data to remote server: http://www.cpython.org/httpdata/")
 
 const (
 	defaultMaxMemory = 32 << 20 // 32 MB
 )
 
-var db *gorm.DB
+//var db *gorm.DB
 
 // t is type 1:request,2:response
-func HeaderToDB(h http.Header,t uint,id uint){
+func HeaderToDB(session * requests.Request,h http.Header,t string,pid string) ([]requests.Datas){
 
+    var d []requests.Datas
 
     for n,v :=range h{
         val := strings.Join(v,", ")
 
-        InsertHeaders(db,n ,val ,t ,id )
+        d = append(d,requests.Datas{"type":t,
+        "parentid":pid,
+        "name":n,
+        "values":val,
+        })
     }
+    return d
 }
 
-func FormToDB(val url.Values,t uint,id uint){
+func FormToDB(session *requests.Request,val url.Values,t string,pid string)([]requests.Datas){
 
 
+    var d []requests.Datas
     for n,v :=range val{
         content := strings.Join(v,", ")
 
-        InsertForm(db,n ,content ,t ,id )
+        d = append(d,requests.Datas{"type":t,
+        "parentid":pid,
+        "name":n,
+        "values":content,
+        })
     }
+    return d
 }
 
 
@@ -315,7 +329,7 @@ func  isResponse(data []byte) (bool,string) {
     reader := bufio.NewReader(buf)
     tp := textproto.NewReader(reader)
 
-    firstLine, _ := tp.ReadLine()
+    firstLine, _:= tp.ReadLine()
     return strings.HasPrefix(strings.TrimSpace(firstLine), "HTTP/"),firstLine
 }
 
@@ -743,36 +757,88 @@ func (t * tcpStream) UpdateResp(resp * http.Response,timestamp int64,firstLine s
 // save to database
 func (t * tcpStream)Save(hg * httpGroup){
 
+
         req := hg.req
         resp := hg.resp
-        if (req == nil || resp == nil){
+        if (req == nil || resp == nil || *serverurl==""){
             return
         }
-        id := InsertRequestData(db,&RequestTable{FirstLine:hg.reqFirstLine,
-              Host:req.Host,
-              RequestURI:req.RequestURI,
-              SrcIp:t.client.srcip,SrcPort:t.client.srcport,
-              DstIp:t.client.dstip,DstPort:t.client.dstport})
-        // type 1 is request, 2 is response
-        HeaderToDB(req.Header,1,id)
 
-        FormToDB(req.Form,1,id)
-        FormToDB(req.PostForm,1,id)
-        if req.MultipartForm != nil {
-            FormToDB(url.Values(req.MultipartForm.Value),1,id)
+        var h []requests.Datas
+        var f []requests.Datas
+
+        data := requests.Datas{
+          "Host":req.Host,
+          "RequestURI":req.RequestURI,
+          "StatusCode":string(resp.StatusCode),
+          "SrcIp":t.client.srcip,
+          "SrcPort":t.client.srcport,
+          "DstIp":t.client.dstip,
+          "DstPort":t.client.dstport,
+          "HostID":"1"}
+
+
+        session := requests.Requests()
+        ret,err := session.Post(*serverurl+"requests",requests.Header{"Connection": "close"},data)
+
+        if err != nil {
+            fmt.Println(err)
+            return
         }
 
+        var dataJson map[string]interface{}
+        err =  ret.Json(&dataJson)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
 
-		reqdb := FindRequestFirst(db,t.server.srcip,t.server.srcport,t.server.dstip,t.server.dstport)
+        requestid := dataJson["id"]
+        reqid := fmt.Sprintf("%.0f",requestid) 
 
-		respid := InsertResponseData(db,&ResponseTable{FirstLine:hg.respFirstLine,
-              StatusCode:resp.StatusCode,
-              SrcIp:t.server.srcip,SrcPort:t.server.srcport,
-              DstIp:t.server.dstip,DstPort:t.server.dstport},&reqdb)
+        data = requests.Datas{
+              "StatusCode":string(resp.StatusCode),
+              "SrcIp":t.server.srcip,
+              "SrcPort":t.server.srcport,
+              "DstIp":t.server.dstip,
+              "DstPort":t.server.dstport,
+              "HostID":"1",
+              "RequestID":reqid}
 
-            // type 1 is request, 2 is response	
-         HeaderToDB(resp.Header,2,respid)
+        ret,err = session.Post(*serverurl+"responses",data)
 
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+
+        err =  ret.Json(&dataJson)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+
+        responseid := dataJson["id"]
+        respid := fmt.Sprintf("%.0f",responseid)
+        fmt.Println(requestid,responseid)
+
+        h = append(h,HeaderToDB(session,req.Header,"1",reqid)...)
+
+        f = append(f,FormToDB(session,req.Form,"1",reqid)...)
+        f = append(f,FormToDB(session,req.PostForm,"1",reqid)...)
+        if req.MultipartForm != nil {
+            f = append(f,FormToDB(session,url.Values(req.MultipartForm.Value),"1",reqid)...)
+        }
+
+        h = append(h,HeaderToDB(session,resp.Header,"2",respid)...)
+
+        if len(h) > 0{
+            ret,err = session.PostJson(*serverurl+"headers?array=1",h)
+        }
+        if len(f) > 0{
+            ret,err = session.PostJson(*serverurl+"forms?array=1",f)
+        }
+        fmt.Println(h,f)
 
 }
 
@@ -934,7 +1000,6 @@ func main() {
 
     loadConfig()
 
-    go http.ListenAndServe("0.0.0.0:8000", nil)
 
 	if *fname != "" {
 		if handle, err = pcap.OpenOffline(*fname); err != nil {
@@ -982,11 +1047,6 @@ func main() {
         }
 
 	}
-	// initial database by gorm ;db_orm.go
-	db = InitDB ()
-	defer db.Close()
-
-	go InitHdServer()
 
 	var dec gopacket.Decoder
 	var ok bool

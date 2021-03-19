@@ -3,12 +3,13 @@
   "device": "en0",
   "port":80,
 
+  "serverurl":"http://127.0.0.1:1337/",
   "NOTE1":"jslenght 是指javascript response协议里，用来调试 显示的长度",
-  "jslength":100,
+  "jslength":1000,
   "htmllength":0,
 
   "dumpanystr":"text/plain",
-  "dumpanylen":0
+  "dumpanylen":200
 
 }
 

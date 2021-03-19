@@ -52,4 +52,5 @@ func loadConfig(){
     *danystr  = configData["dumpanystr"].(string)
     *danylen  = int(configData["dumpanylen"].(float64))
 
+    *serverurl = configData["serverurl"].(string)
 }
