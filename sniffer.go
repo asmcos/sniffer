@@ -43,14 +43,12 @@ import (
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/reassembly"
 
-	//"github.com/jinzhu/gorm"
     "github.com/asmcos/requests"
 
     //_ "net/http/pprof"
 )
 
 var maxcount = flag.Int("c", -1, "Only grab this many packets, then exit")
-var decoder = flag.String("decoder", "", "Name of the decoder to use (default: guess from capture)")
 var statsevery = flag.Int("stats", 1000, "Output statistics every N packets")
 var lazy = flag.Bool("lazy", false, "If true, do lazy decoding")
 var nodefrag = flag.Bool("nodefrag", false, "If true, do not do IPv4 defrag")
@@ -86,6 +84,9 @@ var promisc = flag.Bool("promisc", true, "Set promiscuous mode")
 
 var memprofile = flag.String("memprofile", "", "Write memory profile")
 var serverurl = flag.String("serverurl", "", "save data to remote server: http://www.cpython.org/httpdata/")
+
+var signalChan chan os.Signal
+var sysexit bool = false
 
 const (
 	defaultMaxMemory = 32 << 20 // 32 MB
@@ -984,6 +985,21 @@ func (t *tcpStream) ReassemblyComplete(ac reassembly.AssemblerContext) bool {
 	return false
 }
 
+func HandlerSig (){
+
+    for {
+        select {
+        case <-signalChan:
+            fmt.Fprintf(os.Stderr, "\nCaught SIGINT: aborting %v\n",sysexit)
+            if sysexit == false{
+                sysexit = true
+            } else {
+                os.Exit(1) //Second ctrl+c system exit
+            }
+        }
+    }
+}
+
 func main() {
 	defer util.Run()()
 	var handle *pcap.Handle
@@ -1048,16 +1064,7 @@ func main() {
 
 	}
 
-	var dec gopacket.Decoder
-	var ok bool
-	decoder_name := *decoder
-	if decoder_name == "" {
-		decoder_name = fmt.Sprintf("%s", handle.LinkType())
-	}
-	if dec, ok = gopacket.DecodersByLayerName[decoder_name]; !ok {
-		log.Fatalln("No decoder named", decoder_name)
-	}
-	source := gopacket.NewPacketSource(handle, dec)
+	source := gopacket.NewPacketSource(handle, handle.LinkType())
 	source.Lazy = *lazy
 	source.NoCopy = true
 	Info("Starting to read packets\n")
@@ -1070,8 +1077,9 @@ func main() {
 	streamPool := reassembly.NewStreamPool(streamFactory)
 	assembler := reassembly.NewAssembler(streamPool)
 
-	signalChan := make(chan os.Signal, 1)
+	signalChan = make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
+    go HandlerSig()
 
 	for packet := range source.Packets() {
 		count++
@@ -1132,20 +1140,13 @@ func main() {
 		}
 
 		done := *maxcount > 0 && count >= *maxcount
-		if count%*statsevery == 0 || done {
+		if count%*statsevery == 0 || done || sysexit {
 			errorsMapMutex.Lock()
 			errorMapLen := len(errorsMap)
 			errorsMapMutex.Unlock()
 			fmt.Fprintf(os.Stderr, "Processed %v packets (%v bytes) in %v (errors: %v, errTypes:%v)\n", count, bytes, time.Since(start), errors, errorMapLen)
 		}
-		select {
-		case <-signalChan:
-			fmt.Fprintf(os.Stderr, "\nCaught SIGINT: aborting\n")
-			done = true
-		default:
-			// NOP: continue
-		}
-		if done {
+		if sysexit {
 			break
 		}
 	}
