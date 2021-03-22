@@ -1,8 +1,8 @@
-# httpdump
+#sniffer 
 
-Httpdump capture http packet in gopacket(libpcap).
+sniffer capture http packet in gopacket(libpcap).
 
-The httpdump project captures packets through pcap and parses the http protocol. 
+The sniffer project captures packets through pcap and parses the http protocol. 
 The fetched results will be stored in the database. 
 He also provides a webserver interface to view packet capture results.
 
@@ -19,9 +19,7 @@ for centos/redhat/fedora:
 #depend
 
 ```
-go get github.com/gin-gonic/gin
-go get github.com/jinzhu/gorm
-go get github.com/jinzhu/gorm/dialects/sqlite
+go get github.com/asmcos/requests 
 ```
 
 # make
@@ -34,6 +32,41 @@ make
 ```
 nohup ./sniffer -i eth0 &
 ```
+
+
+#Support Config Json file
+
+sniffer.json
+
+```
+{
+  "name": "sniffer",
+  "device": "en0",
+  "port":80
+}
+```
+
+
+# Save data to webserver
+
+The sniffer can store data to a remote server or not save the data.
+You can submit data through serverurl.
+
+How to config serverurl?
+
+``` 
+vim sniffer.json
+"serverurl":"http://127.0.0.1:1337/", //Save data to server
+"serverurl":"" //Don't save data
+```
+
+How to build data server ?
+
+```
+See https://github.com/asmcos/AIDatas
+
+```
+
 
 # capture example:
 ```
