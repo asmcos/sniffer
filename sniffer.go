@@ -95,7 +95,7 @@ const (
 //var db *gorm.DB
 
 // t is type 1:request,2:response
-func HeaderToDB(session * requests.Request,h http.Header,t string,pid string) ([]requests.Datas){
+func HeaderToDB(session * requests.Request,h http.Header,t string) ([]requests.Datas){
 
     var d []requests.Datas
 
@@ -103,7 +103,6 @@ func HeaderToDB(session * requests.Request,h http.Header,t string,pid string) ([
         val := strings.Join(v,", ")
 
         d = append(d,requests.Datas{"type":t,
-        "parentid":pid,
         "name":n,
         "values":val,
         })
@@ -111,7 +110,7 @@ func HeaderToDB(session * requests.Request,h http.Header,t string,pid string) ([
     return d
 }
 
-func FormToDB(session *requests.Request,val url.Values,t string,pid string)([]requests.Datas){
+func FormToDB(session *requests.Request,val url.Values,t string)([]requests.Datas){
 
 
     var d []requests.Datas
@@ -119,7 +118,6 @@ func FormToDB(session *requests.Request,val url.Values,t string,pid string)([]re
         content := strings.Join(v,", ")
 
         d = append(d,requests.Datas{"type":t,
-        "parentid":pid,
         "name":n,
         "values":content,
         })
@@ -768,10 +766,16 @@ func (t * tcpStream)Save(hg * httpGroup){
         var h []requests.Datas
         var f []requests.Datas
 
-        data := requests.Datas{
+        var postdata map[string]interface{}
+
+
+        StatusCode := fmt.Sprintf("%d",resp.StatusCode)
+
+        postdata = make(map[string]interface{})
+        reqdata := requests.Datas{
           "Host":req.Host,
           "RequestURI":req.RequestURI,
-          "StatusCode":string(resp.StatusCode),
+          "StatusCode":StatusCode,
           "SrcIp":t.client.srcip,
           "SrcPort":t.client.srcport,
           "DstIp":t.client.dstip,
@@ -780,66 +784,34 @@ func (t * tcpStream)Save(hg * httpGroup){
 
 
         session := requests.Requests()
-        ret,err := session.Post(*serverurl+"requests",requests.Header{"Connection": "close"},data)
 
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
+        postdata["request"] = reqdata
 
-        var dataJson map[string]interface{}
-        err =  ret.Json(&dataJson)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-
-        requestid := dataJson["id"]
-        reqid := fmt.Sprintf("%.0f",requestid) 
-
-        data = requests.Datas{
-              "StatusCode":string(resp.StatusCode),
+        respdata := requests.Datas{
+              "StatusCode": StatusCode,
               "SrcIp":t.server.srcip,
               "SrcPort":t.server.srcport,
               "DstIp":t.server.dstip,
               "DstPort":t.server.dstport,
               "HostID":"1",
-              "RequestID":reqid}
+              }
 
-        ret,err = session.Post(*serverurl+"responses",data)
+        postdata["response"] = respdata
 
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
+        h = append(h,HeaderToDB(session,req.Header,"1")...)
 
-        err =  ret.Json(&dataJson)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-
-        responseid := dataJson["id"]
-        respid := fmt.Sprintf("%.0f",responseid)
-        fmt.Println(requestid,responseid)
-
-        h = append(h,HeaderToDB(session,req.Header,"1",reqid)...)
-
-        f = append(f,FormToDB(session,req.Form,"1",reqid)...)
-        f = append(f,FormToDB(session,req.PostForm,"1",reqid)...)
+        f = append(f,FormToDB(session,req.Form,"1")...)
+        f = append(f,FormToDB(session,req.PostForm,"1")...)
         if req.MultipartForm != nil {
-            f = append(f,FormToDB(session,url.Values(req.MultipartForm.Value),"1",reqid)...)
+            f = append(f,FormToDB(session,url.Values(req.MultipartForm.Value),"1")...)
         }
 
-        h = append(h,HeaderToDB(session,resp.Header,"2",respid)...)
+        h = append(h,HeaderToDB(session,resp.Header,"2")...)
 
-        if len(h) > 0{
-            ret,err = session.PostJson(*serverurl+"headers?array=1",h)
-        }
-        if len(f) > 0{
-            ret,err = session.PostJson(*serverurl+"forms?array=1",f)
-        }
-        fmt.Println(h,f)
+        postdata["header"] = h
+        postdata["form"] = f
+
+        session.PostJson(*serverurl+"requests?alldata=1",postdata)
 
 }
 
