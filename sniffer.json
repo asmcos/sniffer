@@ -3,11 +3,18 @@
   "device": "en0",
   "port":80,
 
+
+  "NOTESERVER":"提交数据的到服务器时，为了防止提交垃圾数据，需要配置hostid，hostkey，只有正确的key服务器才会存储，否则服务器会丢弃",
   "serverurl":"http://127.0.0.1:1337/",
-  "NOTE1":"jslenght 是指javascript response协议里，用来调试 显示的长度",
+  "hostid":"2",
+  "hostkey":"43ffweqr3",
+
+
+  "NOTE1":"jslength 是指response 返回数据为 javascript 格式时，用来调试 显示内容的长度",
   "jslength":1000,
   "htmllength":0,
 
+  "NOTE2":"该字段用来配置response返回的任何格式时，显示的长度,目的也是调试",
   "dumpanystr":"text/plain",
   "dumpanylen":200
 

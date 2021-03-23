@@ -88,6 +88,9 @@ var serverurl = flag.String("serverurl", "", "save data to remote server: http:/
 var signalChan chan os.Signal
 var sysexit bool = false
 
+var hostid  string = ""
+var hostkey string = ""
+
 const (
 	defaultMaxMemory = 32 << 20 // 32 MB
 )
@@ -774,13 +777,15 @@ func (t * tcpStream)Save(hg * httpGroup){
         postdata = make(map[string]interface{})
         reqdata := requests.Datas{
           "Host":req.Host,
+          "Method":req.Method,
           "RequestURI":req.RequestURI,
+          "Proto":req.Proto,
           "StatusCode":StatusCode,
           "SrcIp":t.client.srcip,
           "SrcPort":t.client.srcport,
           "DstIp":t.client.dstip,
           "DstPort":t.client.dstport,
-          "HostID":"1"}
+          }
 
 
         session := requests.Requests()
@@ -788,12 +793,12 @@ func (t * tcpStream)Save(hg * httpGroup){
         postdata["request"] = reqdata
 
         respdata := requests.Datas{
+              "Proto":resp.Proto,
               "StatusCode": StatusCode,
               "SrcIp":t.server.srcip,
               "SrcPort":t.server.srcport,
               "DstIp":t.server.dstip,
               "DstPort":t.server.dstport,
-              "HostID":"1",
               }
 
         postdata["response"] = respdata
@@ -810,6 +815,9 @@ func (t * tcpStream)Save(hg * httpGroup){
 
         postdata["header"] = h
         postdata["form"] = f
+
+        postdata["host"] = map[string]string{"hostid":hostid,
+                            "hostkey":hostkey}
 
         session.PostJson(*serverurl+"requests?alldata=1",postdata)
 
