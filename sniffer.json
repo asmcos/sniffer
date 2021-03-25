@@ -4,10 +4,10 @@
   "port":80,
 
 
-  "NOTESERVER":"提交数据的到服务器时，为了防止提交垃圾数据，需要配置hostid，hostkey，只有正确的key服务器才会存储，否则服务器会丢弃",
+  "NOTESERVER":"提交数据的到服务器时，为了防止提交垃圾数据，需要配置clientDeviceid，clientDevicekey，只有正确的key服务器才会存储，否则服务器会丢弃",
   "serverurl":"http://127.0.0.1:1337/",
-  "hostid":"2",
-  "hostkey":"43ffweqr3",
+  "clientDeviceid":"2",
+  "clientDevicekey":"43ffweqr3",
 
 
   "NOTE1":"jslength 是指response 返回数据为 javascript 格式时，用来调试 显示内容的长度",

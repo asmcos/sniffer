@@ -88,8 +88,8 @@ var serverurl = flag.String("serverurl", "", "save data to remote server: http:/
 var signalChan chan os.Signal
 var sysexit bool = false
 
-var hostid  string = ""
-var hostkey string = ""
+var clientDeviceid  string = ""
+var clientDevicekey string = ""
 
 const (
 	defaultMaxMemory = 32 << 20 // 32 MB
@@ -816,8 +816,8 @@ func (t * tcpStream)Save(hg * httpGroup){
         postdata["header"] = h
         postdata["form"] = f
 
-        postdata["host"] = map[string]string{"hostid":hostid,
-                            "hostkey":hostkey}
+        postdata["clientDevice"] = map[string]string{"clientid":clientDeviceid,
+                            "clientkey":clientDevicekey}
 
         session.PostJson(*serverurl+"requests?alldata=1",postdata)
 

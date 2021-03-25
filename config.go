@@ -53,6 +53,6 @@ func loadConfig(){
     *danylen  = int(configData["dumpanylen"].(float64))
 
     *serverurl = configData["serverurl"].(string)
-    hostid     = configData["hostid"].(string)
-    hostkey    = configData["hostkey"].(string)
+    clientDeviceid     = configData["clientDeviceid"].(string)
+    clientDevicekey    = configData["clientDevicekey"].(string)
 }
