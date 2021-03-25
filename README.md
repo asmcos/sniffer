@@ -92,7 +92,8 @@ Content-Length :[229]
 
 # View results through webserver
 ```
-http://127.0.0.1:8080/html
+http://zhanluejia.net.cn:8080/httpdata
 ```
-![image](http://www.zhanluejia.net.cn/static/uploads/a4711c853304a81c3cb7936eaf92166e.png)
+![image](http://www.zhanluejia.net.cn/static/uploads/8f74446537e233fb2af932355cd927f0.png)
+![image](http://www.zhanluejia.net.cn/static/uploads/f5ef64bf4874bd2103945975a1db5d4a.png)
 
